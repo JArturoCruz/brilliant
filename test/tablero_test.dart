@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/region.dart';
-import '../lib/tablero.dart';
-import '../lib/validador.dart';
+import 'package:brilliant/region.dart';
+import 'package:brilliant/tablero.dart';
+import 'package:brilliant/validador.dart';
 
 void main() {
   group('Extracción y coordenadas del tablero', () {

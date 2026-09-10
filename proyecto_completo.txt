@@ -1,0 +1,332 @@
+import 'package:brilliant/tablero.dart';
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        // This is the theme of your application.
+        //
+        // TRY THIS: Try running your application with "flutter run". You'll see
+        // the application has a purple toolbar. Then, without quitting the app,
+        // try changing the seedColor in the colorScheme below to Colors.green
+        // and then invoke "hot reload" (save your changes or press the "hot
+        // reload" button in a Flutter-supported IDE, or press "r" if you used
+        // the command line to start the app).
+        //
+        // Notice that the counter didn't reset back to zero; the application
+        // state is not lost during the reload. To reset the state, use hot
+        // restart instead.
+        //
+        // This works for code too, not just values: Most code changes can be
+        // tested with just a hot reload.
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+  // This widget is the home page of your application. It is stateful, meaning
+  // that it has a State object (defined below) that contains fields that affect
+  // how it looks.
+
+  // This class is the configuration for the state. It holds the values (in this
+  // case the title) provided by the parent (in this case the App widget) and
+  // used by the build method of the State. Fields in a Widget subclass are
+  // always marked "final".
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
+
+  void _incrementCounter() {
+    setState(() {
+      // This call to setState tells the Flutter framework that something has
+      // changed in this State, which causes it to rerun the build method below
+      // so that the display can reflect the updated values. If we changed
+      // _counter without calling setState(), then the build method would not be
+      // called again, and so nothing would appear to happen.
+      _counter++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // This method is rerun every time setState is called, for instance as done
+    // by the _incrementCounter method above.
+    //
+    // The Flutter framework has been optimized to make rerunning build methods
+    // fast, so that you can just rebuild anything that needs updating rather
+    // than having to individually change instances of widgets.
+    return Scaffold(
+      appBar: AppBar(
+        // TRY THIS: Try changing the color here to a specific color (to
+        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
+        // change color while the other colors stay the same.
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        // Here we take the value from the MyHomePage object that was created by
+        // the App.build method, and use it to set our appbar title.
+        title: Text(widget.title),
+      ),
+      body: Center(
+        // Center is a layout widget. It takes a single child and positions it
+        // in the middle of the parent.
+        child: Column(
+          // Column is also a layout widget. It takes a list of children and
+          // arranges them vertically. By default, it sizes itself to fit its
+          // children horizontally, and tries to be as tall as its parent.
+          //
+          // Column has various properties to control how it sizes itself and
+          // how it positions its children. Here we use mainAxisAlignment to
+          // center the children vertically; the main axis here is the vertical
+          // axis because Columns are vertical (the cross axis would be
+          // horizontal).
+          //
+          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
+          // action in the IDE, or press "p" in the console), to see the
+          // wireframe for each widget.
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+class Posicion {
+  final int fila;
+  final int columna;
+
+  const Posicion(this.fila, this.columna);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Posicion &&
+          runtimeType == other.runtimeType &&
+          fila == other.fila &&
+          columna == other.columna;
+
+  @override
+  int get hashCode => fila.hashCode ^ columna.hashCode;
+
+  @override
+  String toString() => '($fila, $columna)';
+}
+
+enum RegionTablero {
+  amarilla,
+  verde1,
+  verde2,
+  azul1,
+  azul2,
+  morada1,
+  morada2,
+  roja1,
+  roja2,
+}
+import 'region.dart';
+
+class TableroJuego {
+  static const int filas = 7;
+  static const int columnas = 7;
+
+  // Matriz interna: null representa celda vacía.
+  final List<List<int?>> _matriz;
+
+  TableroJuego([List<List<int?>>? matrizInicial])
+      : _matriz = matrizInicial ??
+            List.generate(filas, (_) => List.filled(columnas, null, growable: false));
+
+  static const Map<RegionTablero, List<Posicion>> coordenadasPorRegion = {
+    // Región Amarilla: 5 celdas aisladas (4 esquinas + centro)
+    RegionTablero.amarilla: [
+      Posicion(0, 0),
+      Posicion(0, 6),
+      Posicion(3, 3),
+      Posicion(6, 0),
+      Posicion(6, 6),
+    ],
+
+    // Verde 1: Bloque lateral izquierdo
+    RegionTablero.verde1: [
+      Posicion(0, 1),
+      Posicion(1, 0),
+      Posicion(1, 1),
+      Posicion(2, 0),
+      Posicion(3, 0),
+      Posicion(4, 0),
+    ],
+
+    // Verde 2: Bloque lateral derecho
+    RegionTablero.verde2: [
+      Posicion(1, 6),
+      Posicion(2, 5),
+      Posicion(2, 6),
+      Posicion(3, 5),
+      Posicion(3, 6),
+    ],
+
+    // Azul 1: Bloque superior
+    RegionTablero.azul1: [
+      Posicion(0, 2),
+      Posicion(1, 2),
+      Posicion(1, 3),
+      Posicion(2, 3),
+    ],
+
+    // Azul 2: Bloque inferior derecho
+    RegionTablero.azul2: [
+      Posicion(4, 6),
+      Posicion(5, 5),
+      Posicion(5, 6),
+      Posicion(6, 5),
+    ],
+
+    // Morada 1: Bloque superior
+    RegionTablero.morada1: [
+      Posicion(0, 3),
+      Posicion(0, 4),
+      Posicion(0, 5),
+      Posicion(1, 4),
+      Posicion(1, 5),
+      Posicion(2, 4),
+    ],
+
+    // Morada 2: Bloque inferior central
+    RegionTablero.morada2: [
+      Posicion(3, 2),
+      Posicion(4, 2),
+      Posicion(4, 3),
+      Posicion(5, 2),
+      Posicion(6, 1),
+      Posicion(6, 2),
+    ],
+
+    // Roja 1: Bloque medio izquierdo
+    RegionTablero.roja1: [
+      Posicion(2, 1),
+      Posicion(2, 2),
+      Posicion(3, 1),
+      Posicion(4, 1),
+      Posicion(5, 0),
+      Posicion(5, 1),
+    ],
+
+    // Roja 2: Bloque medio derecho
+    RegionTablero.roja2: [
+      Posicion(3, 4),
+      Posicion(4, 4),
+      Posicion(4, 5),
+      Posicion(5, 3),
+      Posicion(5, 4),
+      Posicion(6, 3),
+      Posicion(6, 4),
+    ],
+  };
+
+  void asignarValor(int fila, int columna, int? valor) {
+    if (fila < 0 || fila >= filas || columna < 0 || columna >= columnas) {
+      throw RangeError('Coordenadas fuera de rango: ($fila, $columna)');
+    }
+    _matriz[fila][columna] = valor;
+  }
+
+  int? obtenerValor(int fila, int columna) => _matriz[fila][columna];
+
+  /// Extrae los enteros existentes en la región (omite celdas con null).
+  List<int> extraer(RegionTablero region) {
+    final posiciones = coordenadasPorRegion[region] ?? [];
+    final List<int> numeros = [];
+
+    for (final pos in posiciones) {
+      final valor = _matriz[pos.fila][pos.columna];
+      if (valor != null) {
+        numeros.add(valor);
+      }
+    }
+    return numeros;
+  }
+
+  /// Extrae la lista completa incluyendo celdas nulas.
+  List<int?> extraerCompleto(RegionTablero region) {
+    final posiciones = coordenadasPorRegion[region] ?? [];
+    return posiciones.map((p) => _matriz[p.fila][p.columna]).toList();
+  }
+}
+import 'region.dart';
+
+class ValidadorRegiones {
+  /// Regla Roja: Todos los números deben ser diferentes.
+  static bool validarRoja(List<int> valores) {
+    return valores.toSet().length == valores.length;
+  }
+
+  /// Regla Amarilla: Todos los números deben ser diferentes.
+  static bool validarAmarilla(List<int> valores) {
+    return valores.toSet().length == valores.length;
+  }
+
+  /// Regla Verde: Se puede insertar cualquier número sin restricción.
+  static bool validarVerde(List<int> valores) {
+    return true;
+  }
+
+  /// Regla Azul: Solo se permite un único número en toda la región.
+  static bool validarAzul(List<int> valores) {
+    return valores.toSet().length <= 1;
+  }
+
+  /// Regla Morada: Como máximo 2 números distintos en toda la región.
+  static bool validarMorada(List<int> valores) {
+    return valores.toSet().length <= 2;
+  }
+
+  /// Método general que enruta la validación según la región recibida.
+  static bool esValido(RegionTablero region, List<int> valores) {
+    switch (region) {
+      case RegionTablero.amarilla:
+        return validarAmarilla(valores);
+      case RegionTablero.roja1:
+      case RegionTablero.roja2:
+        return validarRoja(valores);
+      case RegionTablero.verde1:
+      case RegionTablero.verde2:
+        return validarVerde(valores);
+      case RegionTablero.azul1:
+      case RegionTablero.azul2:
+        return validarAzul(valores);
+      case RegionTablero.morada1:
+      case RegionTablero.morada2:
+        return validarMorada(valores);
+    }
+  }
+}
