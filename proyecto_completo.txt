@@ -154,10 +154,15 @@ enum RegionTablero {
   roja2,
 }
 import 'region.dart';
+import 'topologia_tablero.dart';
 
+/// Responsable ÚNICAMENTE de guardar y exponer el estado (valores) de una
+/// partida concreta sobre el tablero. No conoce reglas de Tipo ni valida
+/// jugadas — eso es responsabilidad de ValidadorDeJugadas. Tampoco conoce
+/// el diseño de las regiones más allá de pedírselo a TopologiaTablero.
 class TableroJuego {
-  static const int filas = 7;
-  static const int columnas = 7;
+  static const int filas = TopologiaTablero.filas;
+  static const int columnas = TopologiaTablero.columnas;
 
   // Matriz interna: null representa celda vacía.
   final List<List<int?>> _matriz;
@@ -165,93 +170,6 @@ class TableroJuego {
   TableroJuego([List<List<int?>>? matrizInicial])
       : _matriz = matrizInicial ??
             List.generate(filas, (_) => List.filled(columnas, null, growable: false));
-
-  static const Map<RegionTablero, List<Posicion>> coordenadasPorRegion = {
-    // Región Amarilla: 5 celdas aisladas (4 esquinas + centro)
-    RegionTablero.amarilla: [
-      Posicion(0, 0),
-      Posicion(0, 6),
-      Posicion(3, 3),
-      Posicion(6, 0),
-      Posicion(6, 6),
-    ],
-
-    // Verde 1: Bloque lateral izquierdo
-    RegionTablero.verde1: [
-      Posicion(0, 1),
-      Posicion(1, 0),
-      Posicion(1, 1),
-      Posicion(2, 0),
-      Posicion(3, 0),
-      Posicion(4, 0),
-    ],
-
-    // Verde 2: Bloque lateral derecho
-    RegionTablero.verde2: [
-      Posicion(1, 6),
-      Posicion(2, 5),
-      Posicion(2, 6),
-      Posicion(3, 5),
-      Posicion(3, 6),
-    ],
-
-    // Azul 1: Bloque superior
-    RegionTablero.azul1: [
-      Posicion(0, 2),
-      Posicion(1, 2),
-      Posicion(1, 3),
-      Posicion(2, 3),
-    ],
-
-    // Azul 2: Bloque inferior derecho
-    RegionTablero.azul2: [
-      Posicion(4, 6),
-      Posicion(5, 5),
-      Posicion(5, 6),
-      Posicion(6, 5),
-    ],
-
-    // Morada 1: Bloque superior
-    RegionTablero.morada1: [
-      Posicion(0, 3),
-      Posicion(0, 4),
-      Posicion(0, 5),
-      Posicion(1, 4),
-      Posicion(1, 5),
-      Posicion(2, 4),
-    ],
-
-    // Morada 2: Bloque inferior central
-    RegionTablero.morada2: [
-      Posicion(3, 2),
-      Posicion(4, 2),
-      Posicion(4, 3),
-      Posicion(5, 2),
-      Posicion(6, 1),
-      Posicion(6, 2),
-    ],
-
-    // Roja 1: Bloque medio izquierdo
-    RegionTablero.roja1: [
-      Posicion(2, 1),
-      Posicion(2, 2),
-      Posicion(3, 1),
-      Posicion(4, 1),
-      Posicion(5, 0),
-      Posicion(5, 1),
-    ],
-
-    // Roja 2: Bloque medio derecho
-    RegionTablero.roja2: [
-      Posicion(3, 4),
-      Posicion(4, 4),
-      Posicion(4, 5),
-      Posicion(5, 3),
-      Posicion(5, 4),
-      Posicion(6, 3),
-      Posicion(6, 4),
-    ],
-  };
 
   void asignarValor(int fila, int columna, int? valor) {
     if (fila < 0 || fila >= filas || columna < 0 || columna >= columnas) {
@@ -264,7 +182,7 @@ class TableroJuego {
 
   /// Extrae los enteros existentes en la región (omite celdas con null).
   List<int> extraer(RegionTablero region) {
-    final posiciones = coordenadasPorRegion[region] ?? [];
+    final posiciones = TopologiaTablero.posicionesDe(region);
     final List<int> numeros = [];
 
     for (final pos in posiciones) {
@@ -278,21 +196,50 @@ class TableroJuego {
 
   /// Extrae la lista completa incluyendo celdas nulas.
   List<int?> extraerCompleto(RegionTablero region) {
-    final posiciones = coordenadasPorRegion[region] ?? [];
+    final posiciones = TopologiaTablero.posicionesDe(region);
     return posiciones.map((p) => _matriz[p.fila][p.columna]).toList();
   }
 }
 import 'dart:ui';
 
-abstract class Tipo {
-Color get color;
-String get descripcion;
-bool esPosibleAgregar(List<int> valores, int nuevoValor);
-Map<int,int> get puntuaciones;
+import 'region.dart';
 
+/// Contrato de tipo de región. Cada Tipo concentra: su color, su
+/// descripción, la regla que determina si un valor puede agregarse a la
+/// región, y los puntos otorgados según la posición de finalización.
+abstract class Tipo {
+
+  const Tipo();
+  
+  Color get color;
+  String get descripcion;
+  bool esPosibleAgregar(List<int> actuales, int posible);
+
+  /// Puntos otorgados según la POSICIÓN en la que un jugador completa esta
+  /// región (es una carrera: solo puntúan los 3 primeros en completarla).
+  /// Clave = posición de finalización (1 = primero, 2 = segundo, 3 =
+  /// tercero). De la 4ta posición en adelante no se otorgan puntos.
+  Map<int, int> get puntuaciones;
+}
+
+/// Puntos otorgados a quien complete la región en [posicion] (1º, 2º, 3º...).
+/// De la 4ta posición en adelante siempre da 0.
+extension TipoPuntuacion on Tipo {
+  int puntosPorPosicion(int posicion) => puntuaciones[posicion] ?? 0;
+}
+
+/// Regla compartida por los tipos que exigen "todos los números distintos"
+/// (Amarillo y Rojo). Se define una sola vez para no duplicar la misma
+/// regla de negocio en dos clases distintas.
+mixin ReglaTodosDistintos on Tipo {
+  @override
+  bool esPosibleAgregar(List<int> actuales, int posible) =>
+      !actuales.contains(posible);
 }
 
 class TipoAzul extends Tipo {
+  const TipoAzul();
+
   @override
   Color get color => const Color(0xFF2196F3);
 
@@ -306,45 +253,47 @@ class TipoAzul extends Tipo {
 
   @override
   Map<int, int> get puntuaciones => {
-1:7,
-2:5,
-3:3
-  };
+        1: 7,
+        2: 5,
+        3: 3,
+      };
 }
 
 class TipoVerde extends Tipo {
+  const TipoVerde();
+
   @override
   Color get color => const Color(0xFF4CAF50);
- 
+
   @override
   String get descripcion => 'Se puede colocar cualquier número';
- 
+
   @override
-  bool esPosibleAgregar(List<int> actuales, int posible) {
-    return true;
-  }
- 
+  bool esPosibleAgregar(List<int> actuales, int posible) => true;
+
   @override
   Map<int, int> get puntuaciones => {
-    1: 4,
-    2: 3,
-    3: 2,
-  };
+        1: 4,
+        2: 3,
+        3: 2,
+      };
 }
 
 class TipoMorado extends Tipo {
+  const TipoMorado();
+
   @override
   Color get color => const Color(0xFF9C27B0);
- 
+
   @override
   String get descripcion => 'Máximo dos números diferentes por zona';
- 
+
   @override
   bool esPosibleAgregar(List<int> actuales, int posible) {
     final distintos = actuales.toSet()..add(posible);
     return distintos.length <= 2;
   }
- 
+
   @override
   Map<int, int> get puntuaciones => {
         1: 8,
@@ -353,48 +302,91 @@ class TipoMorado extends Tipo {
       };
 }
 
-class TipoAmarillo extends Tipo {
+class TipoAmarillo extends Tipo with ReglaTodosDistintos {
+  const TipoAmarillo();
+
   @override
   Color get color => const Color(0xFFFFC107);
- 
+
   @override
   String get descripcion => 'Todos los números deben de ser distintos';
- 
-  @override
-  bool esPosibleAgregar(List<int> actuales, int posible) {
-    return actuales.isEmpty || actuales.every((element) => element != posible);
-  }
- 
+
   @override
   Map<int, int> get puntuaciones => {
-    1: 8,
-    2: 6,
-    3: 4,
-  };
+        1: 8,
+        2: 6,
+        3: 4,
+      };
 }
 
-class TipoRojo extends Tipo {
+class TipoRojo extends Tipo with ReglaTodosDistintos {
+  const TipoRojo();
+
   @override
   Color get color => const Color(0xFFF44336);
- 
+
   @override
   String get descripcion => 'Todos los números deben de ser distintos';
- 
- 
-  @override
-  bool esPosibleAgregar(List<int> actuales, int posible) {
-    return actuales.isEmpty || actuales.every((element) => element != posible);
-  }
- 
+
   @override
   Map<int, int> get puntuaciones => {
-1:8,
-2:6,
-3:4
-  };
+        1: 8,
+        2: 6,
+        3: 4,
+      };
 }
 
-  
+/// Estado de una región (según el diagrama original del proyecto).
+enum EstadoRegion {
+  incompleta,
+  completa,
+  completaConBonificacion,
+}
+
+/// Comportamiento añadido sobre Tipo sin tocar la clase original
+/// (principio Abierto/Cerrado). Deriva la validez de una región completa
+/// reutilizando esPosibleAgregar como única fuente de verdad de cada regla.
+extension TipoEstadoRegion on Tipo {
+  bool regionEsValida(List<int> valores) {
+    for (var i = 0; i < valores.length; i++) {
+      final resto = List<int>.from(valores)..removeAt(i);
+      if (!esPosibleAgregar(resto, valores[i])) return false;
+    }
+    return true;
+  }
+
+  EstadoRegion calcularEstado(List<int?> valoresCompletos) {
+    if (valoresCompletos.contains(null)) return EstadoRegion.incompleta;
+    final valores = valoresCompletos.whereType<int>().toList();
+    return regionEsValida(valores)
+        ? EstadoRegion.completa
+        : EstadoRegion.incompleta;
+  }
+}
+
+/// Une cada región específica del tablero (identificador: verde1, verde2,
+/// azul1...) con su Tipo (color/regla real).
+class TiposDeRegion {
+  static const Map<RegionTablero, Tipo> porRegion = {
+    RegionTablero.amarilla: TipoAmarillo(),
+    RegionTablero.verde1: TipoVerde(),
+    RegionTablero.verde2: TipoVerde(),
+    RegionTablero.azul1: TipoAzul(),
+    RegionTablero.azul2: TipoAzul(),
+    RegionTablero.morada1: TipoMorado(),
+    RegionTablero.morada2: TipoMorado(),
+    RegionTablero.roja1: TipoRojo(),
+    RegionTablero.roja2: TipoRojo(),
+  };
+
+  static Tipo obtenerTipo(RegionTablero region) {
+    final tipo = porRegion[region];
+    if (tipo == null) {
+      throw ArgumentError('No hay Tipo definido para la región: $region');
+    }
+    return tipo;
+  }
+}
 import 'region.dart';
 import 'validador.dart';
 
@@ -553,6 +545,120 @@ class TiposDeRegion {
 }
 import 'region.dart';
 
+/// Responsable ÚNICAMENTE de conocer el diseño fijo del tablero: qué
+/// celdas (Posicion) pertenecen a qué región (RegionTablero). No conoce
+/// nada sobre el estado (valores) de una partida ni sobre las reglas
+/// de cada Tipo — eso es responsabilidad de otras clases.
+class TopologiaTablero {
+  static const int filas = 7;
+  static const int columnas = 7;
+
+  static const Map<RegionTablero, List<Posicion>> coordenadasPorRegion = {
+    // Región Amarilla: 5 celdas aisladas (4 esquinas + centro)
+    RegionTablero.amarilla: [
+      Posicion(0, 0),
+      Posicion(0, 6),
+      Posicion(3, 3),
+      Posicion(6, 0),
+      Posicion(6, 6),
+    ],
+
+    // Verde 1: Bloque lateral izquierdo
+    RegionTablero.verde1: [
+      Posicion(0, 1),
+      Posicion(1, 0),
+      Posicion(1, 1),
+      Posicion(2, 0),
+      Posicion(3, 0),
+      Posicion(4, 0),
+    ],
+
+    // Verde 2: Bloque lateral derecho
+    RegionTablero.verde2: [
+      Posicion(1, 6),
+      Posicion(2, 5),
+      Posicion(2, 6),
+      Posicion(3, 5),
+      Posicion(3, 6),
+    ],
+
+    // Azul 1: Bloque superior
+    RegionTablero.azul1: [
+      Posicion(0, 2),
+      Posicion(1, 2),
+      Posicion(1, 3),
+      Posicion(2, 3),
+    ],
+
+    // Azul 2: Bloque inferior derecho
+    RegionTablero.azul2: [
+      Posicion(4, 6),
+      Posicion(5, 5),
+      Posicion(5, 6),
+      Posicion(6, 5),
+    ],
+
+    // Morada 1: Bloque superior
+    RegionTablero.morada1: [
+      Posicion(0, 3),
+      Posicion(0, 4),
+      Posicion(0, 5),
+      Posicion(1, 4),
+      Posicion(1, 5),
+      Posicion(2, 4),
+    ],
+
+    // Morada 2: Bloque inferior central
+    RegionTablero.morada2: [
+      Posicion(3, 2),
+      Posicion(4, 2),
+      Posicion(4, 3),
+      Posicion(5, 2),
+      Posicion(6, 1),
+      Posicion(6, 2),
+    ],
+
+    // Roja 1: Bloque medio izquierdo
+    RegionTablero.roja1: [
+      Posicion(2, 1),
+      Posicion(2, 2),
+      Posicion(3, 1),
+      Posicion(4, 1),
+      Posicion(5, 0),
+      Posicion(5, 1),
+    ],
+
+    // Roja 2: Bloque medio derecho
+    RegionTablero.roja2: [
+      Posicion(3, 4),
+      Posicion(4, 4),
+      Posicion(4, 5),
+      Posicion(5, 3),
+      Posicion(5, 4),
+      Posicion(6, 3),
+      Posicion(6, 4),
+    ],
+  };
+
+  /// Mapa inverso (celda -> región), calculado una sola vez a partir de
+  /// [coordenadasPorRegion].
+  static final Map<Posicion, RegionTablero> _regionPorCelda = {
+    for (final entrada in coordenadasPorRegion.entries)
+      for (final pos in entrada.value) pos: entrada.key,
+  };
+
+  /// Región a la que pertenece la celda (fila, columna), o null si la
+  /// celda no forma parte de ninguna región definida.
+  static RegionTablero? regionDeCelda(int fila, int columna) =>
+      _regionPorCelda[Posicion(fila, columna)];
+
+  /// Posiciones que conforman una región. Lista vacía si la región no
+  /// tiene celdas definidas.
+  static List<Posicion> posicionesDe(RegionTablero region) =>
+      coordenadasPorRegion[region] ?? const [];
+}
+import 'region.dart';
+
 class ValidadorRegiones {
   /// Regla Roja: Todos los números deben ser diferentes.
   static bool validarRoja(List<int> valores) {
@@ -596,6 +702,145 @@ class ValidadorRegiones {
       case RegionTablero.morada1:
       case RegionTablero.morada2:
         return validarMorada(valores);
+    }
+  }
+}
+import 'region.dart';
+import 'tablero.dart';
+import 'tipo.dart';
+import 'topologia_tablero.dart';
+
+/// Responsable ÚNICAMENTE de orquestar la validación de jugadas: combina
+/// el estado del tablero (TableroJuego), el diseño de las regiones
+/// (TopologiaTablero) y la regla de cada Tipo (TiposDeRegion) para decidir
+/// si una jugada es válida o cuál es el estado de una región. Ninguna de
+/// esas otras clases necesita conocer a las demás para cumplir su propia
+/// función; esta es la única que las conecta.
+class ValidadorDeJugadas {
+  const ValidadorDeJugadas();
+
+  /// Indica si [valor] podría colocarse en (fila, columna) sin romper la
+  /// regla del Tipo de la región a la que pertenece esa celda, dado lo que
+  /// ya hay colocado en el resto de celdas de esa misma región.
+  /// Devuelve false si la celda no pertenece a ninguna región.
+  bool puedeAsignar(TableroJuego tablero, int fila, int columna, int valor) {
+    final region = TopologiaTablero.regionDeCelda(fila, columna);
+    if (region == null) return false;
+
+    final tipo = TiposDeRegion.obtenerTipo(region);
+    final posiciones = TopologiaTablero.posicionesDe(region);
+
+    final actuales = <int>[];
+    for (final pos in posiciones) {
+      if (pos.fila == fila && pos.columna == columna) continue;
+      final valorActual = tablero.obtenerValor(pos.fila, pos.columna);
+      if (valorActual != null) actuales.add(valorActual);
+    }
+    return tipo.esPosibleAgregar(actuales, valor);
+  }
+
+  /// Estado actual (incompleta / completa / completaConBonificacion) de
+  /// una región concreta del tablero, según la regla de su Tipo.
+  EstadoRegion estadoDe(TableroJuego tablero, RegionTablero region) {
+    final tipo = TiposDeRegion.obtenerTipo(region);
+    return tipo.calcularEstado(tablero.extraerCompleto(region));
+  }
+}
+import 'region.dart';
+
+/// Zona especial de configuración inicial de la partida: 6 celdas fijas,
+/// repartidas sobre distintas regiones de color, que deben llenarse con
+/// los números del 1 al 6 (sin repetir) antes de poder avanzar en el
+/// juego. No es una RegionTablero de color: cada una de estas celdas
+/// también pertenece a su propia región, pero esta regla se valida de
+/// forma independiente (es una capa adicional, no un reemplazo).
+class ZonaInicial {
+  ZonaInicial._();
+
+  static const List<Posicion> posiciones = [
+    Posicion(2, 0), // pertenece a verde1
+    Posicion(5, 1), // pertenece a roja1
+    Posicion(1, 3), // pertenece a azul1
+    Posicion(4, 3), // pertenece a morada2
+    Posicion(2, 5), // pertenece a verde2
+    Posicion(4, 6), // pertenece a azul2
+  ];
+
+  static const int cantidadCeldas = 6;
+  static const Set<int> valoresRequeridos = {1, 2, 3, 4, 5, 6};
+
+  /// Indica si [valores] (uno por cada celda de [posiciones], sin importar
+  /// el orden) son válidos: las 6 celdas llenas, con los números 1 a 6,
+  /// cada uno usado exactamente una vez.
+  static bool esValida(List<int?> valores) {
+    if (valores.length != cantidadCeldas) return false;
+    if (valores.contains(null)) return false;
+
+    final numeros = valores.whereType<int>().toSet();
+    return numeros.length == cantidadCeldas &&
+        numeros.every(valoresRequeridos.contains);
+  }
+}
+
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'region.dart';
+import 'tablero.dart';
+import 'zona_inicial.dart';
+
+/// Estado del llenado de la ZonaInicial: el valor actual de cada una de
+/// sus 6 celdas, y si ya son válidos (1 a 6, sin repetir) para permitir
+/// avanzar en el juego.
+class ZonaInicialState {
+  final Map<Posicion, int?> valores;
+  final bool esValida;
+
+  const ZonaInicialState({required this.valores, required this.esValida});
+
+  factory ZonaInicialState.inicial() => ZonaInicialState(
+        valores: {for (final pos in ZonaInicial.posiciones) pos: null},
+        esValida: false,
+      );
+
+  ZonaInicialState copyWith({Map<Posicion, int?>? valores, bool? esValida}) {
+    return ZonaInicialState(
+      valores: valores ?? this.valores,
+      esValida: esValida ?? this.esValida,
+    );
+  }
+}
+
+/// Cubit LOCAL: se crea y se descarta dentro de la pantalla/flujo de
+/// configuración inicial (por ejemplo con un BlocProvider alrededor de
+/// esa pantalla), no es estado global de la app. Su única responsabilidad
+/// es controlar el llenado de la ZonaInicial y decidir si ya se puede
+/// avanzar al resto del juego — no valida reglas de Tipo ni conoce el
+/// resto del tablero más allá de estas 6 celdas.
+class ZonaInicialCubit extends Cubit<ZonaInicialState> {
+  ZonaInicialCubit() : super(ZonaInicialState.inicial());
+
+  /// Asigna (o borra, con null) el valor de una celda de la ZonaInicial.
+  /// No hace nada si la posición no pertenece a la ZonaInicial.
+  void asignarValor(Posicion posicion, int? valor) {
+    if (!ZonaInicial.posiciones.contains(posicion)) return;
+
+    final nuevosValores = Map<Posicion, int?>.from(state.valores)
+      ..[posicion] = valor;
+
+    emit(state.copyWith(
+      valores: nuevosValores,
+      esValida: ZonaInicial.esValida(nuevosValores.values.toList()),
+    ));
+  }
+
+  /// Vuelca los valores de la ZonaInicial hacia el tablero real. No hace
+  /// nada si todavía no son válidos (protege el "no avanzar hasta que
+  /// estén completos" también del lado de los datos, no solo de la UI).
+  void aplicarATablero(TableroJuego tablero) {
+    if (!state.esValida) return;
+    for (final entrada in state.valores.entries) {
+      tablero.asignarValor(entrada.key.fila, entrada.key.columna, entrada.value);
     }
   }
 }
