@@ -52,9 +52,15 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     if (sel == null || state.iniciada) return;
     if (!ZonaInicial.valoresRequeridos.contains(numero)) return;
 
-    final usadoEnOtra =
-        state.valores.entries.any((e) => e.key != sel && e.value == numero);
-    if (usadoEnOtra) return;
+    // Si el número ya está en otra casilla, se rechaza y se avisa dónde.
+    for (final e in state.valores.entries) {
+      if (e.key != sel && e.value == numero) {
+        _notificar('El $numero ya está en la casilla de la fila '
+            '${e.key.fila + 1}, columna ${e.key.columna + 1}. '
+            'Bórralo o cámbialo primero.');
+        return;
+      }
+    }
 
     asignarValor(sel, numero);
     _avanzarASiguienteVacia();
@@ -65,6 +71,10 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     final sel = state.seleccionada;
     if (sel == null || state.iniciada) return;
     asignarValor(sel, null);
+  }
+
+  void _notificar(String mensaje) {
+    emit(state.copyWith(mensaje: mensaje, mensajeId: state.mensajeId + 1));
   }
 
   void _avanzarASiguienteVacia() {

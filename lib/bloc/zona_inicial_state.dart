@@ -9,11 +9,18 @@ class ZonaInicialState {
   final bool esValida;
   final bool iniciada;
 
+  /// Aviso para el usuario (p. ej. "número repetido"). La UI lo muestra
+  /// cuando [mensajeId] cambia, así el mismo aviso puede repetirse.
+  final String? mensaje;
+  final int mensajeId;
+
   const ZonaInicialState({
     required this.valores,
     required this.esValida,
     this.seleccionada,
     this.iniciada = false,
+    this.mensaje,
+    this.mensajeId = 0,
   });
 
   factory ZonaInicialState.inicial() => ZonaInicialState(
@@ -34,12 +41,16 @@ class ZonaInicialState {
     bool? iniciada,
     Posicion? seleccionada,
     bool limpiarSeleccion = false,
+    String? mensaje,
+    int? mensajeId,
   }) {
     return ZonaInicialState(
       valores: valores ?? this.valores,
       esValida: esValida ?? this.esValida,
       iniciada: iniciada ?? this.iniciada,
       seleccionada: limpiarSeleccion ? null : (seleccionada ?? this.seleccionada),
+      mensaje: mensaje ?? this.mensaje,
+      mensajeId: mensajeId ?? this.mensajeId,
     );
   }
 }

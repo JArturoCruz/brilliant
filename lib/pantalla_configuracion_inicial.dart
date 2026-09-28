@@ -26,7 +26,8 @@ class _PantallaConfiguracionInicialState
     return BlocProvider(
       create: (_) => ZonaInicialCubit(),
       child: _AtajosTeclado(
-        child: Scaffold(
+        child: _MensajesAlUsuario(
+          child: Scaffold(
           appBar: AppBar(title: const Text('Brilliant')),
           body: SafeArea(
             child: Center(
@@ -51,7 +52,36 @@ class _PantallaConfiguracionInicialState
             ),
           ),
         ),
+        ),
       ),
+    );
+  }
+}
+
+/// Muestra en un SnackBar los avisos que emite el cubit (p. ej. al intentar
+/// repetir un número). Funciona igual con mouse, botones y teclado.
+class _MensajesAlUsuario extends StatelessWidget {
+  final Widget child;
+
+  const _MensajesAlUsuario({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<ZonaInicialCubit, ZonaInicialState>(
+      listenWhen: (previo, actual) =>
+          actual.mensajeId != previo.mensajeId && actual.mensaje != null,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(state.mensaje!),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+      },
+      child: child,
     );
   }
 }
@@ -156,8 +186,8 @@ class _SelectorNumeros extends StatelessWidget {
               _BotonNumero(
                 numero: n,
                 marcado: valorSel == n,
-                habilitado:
-                    hayCelda && (!state.usados.contains(n) || valorSel == n),
+                habilitado: hayCelda,
+                usadoEnOtra: state.usados.contains(n) && valorSel != n,
                 onPressed: () => cubit.asignarASeleccionada(n),
               ),
             IconButton.outlined(
@@ -178,12 +208,14 @@ class _BotonNumero extends StatelessWidget {
   final int numero;
   final bool marcado;
   final bool habilitado;
+  final bool usadoEnOtra;
   final VoidCallback onPressed;
 
   const _BotonNumero({
     required this.numero,
     required this.marcado,
     required this.habilitado,
+    required this.usadoEnOtra,
     required this.onPressed,
   });
 
@@ -192,6 +224,10 @@ class _BotonNumero extends StatelessWidget {
     final estilo = ButtonStyle(
       padding: WidgetStateProperty.all(EdgeInsets.zero),
       minimumSize: WidgetStateProperty.all(const Size(52, 52)),
+      // Atenuado si ya está en otra casilla, pero sigue tocable (avisa).
+      foregroundColor: usadoEnOtra
+          ? WidgetStateProperty.all(Theme.of(context).disabledColor)
+          : null,
     );
     final hijo = Text('$numero', style: const TextStyle(fontSize: 20));
     final callback = habilitado ? onPressed : null;
