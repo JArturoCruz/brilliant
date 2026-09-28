@@ -5,7 +5,7 @@ import 'region.dart';
 import 'tipo.dart';
 import 'topologia_tablero.dart';
 import 'zona_inicial.dart';
-import 'zona_inicial_cubit.dart';
+import 'bloc/zona_inicial_cubit.dart';
 
 /// Dibuja el tablero 7x7. Los colores salen de TopologiaTablero + Tipo,
 /// así que el diseño vive en un solo lugar. Las 6 celdas de la ZonaInicial
