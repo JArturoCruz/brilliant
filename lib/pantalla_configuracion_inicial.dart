@@ -1,0 +1,174 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'tablero.dart';
+import 'tablero_widget.dart';
+import 'zona_inicial.dart';
+import 'zona_inicial_cubit.dart';
+
+/// Pantalla de configuración inicial: el ZonaInicialCubit vive solo aquí
+/// (estado local) y se descarta al salir de esta pantalla.
+class PantallaConfiguracionInicial extends StatefulWidget {
+  const PantallaConfiguracionInicial({super.key});
+
+  @override
+  State<PantallaConfiguracionInicial> createState() =>
+      _PantallaConfiguracionInicialState();
+}
+
+class _PantallaConfiguracionInicialState
+    extends State<PantallaConfiguracionInicial> {
+  final TableroJuego tablero = TableroJuego();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => ZonaInicialCubit(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Brilliant')),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _Instruccion(),
+                    const SizedBox(height: 16),
+                    const TableroWidget(),
+                    const SizedBox(height: 20),
+                    const _SelectorNumeros(),
+                    const SizedBox(height: 20),
+                    _BotonInicio(tablero: tablero),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Instruccion extends StatelessWidget {
+  const _Instruccion();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        final texto = state.iniciada
+            ? '¡Configuración lista!'
+            : 'Toca una casilla señalada y coloca los números del 1 al 6 '
+                'sin repetir (${state.cantidadLlenas}/'
+                '${ZonaInicial.cantidadCeldas})';
+        return Text(
+          texto,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        );
+      },
+    );
+  }
+}
+
+class _SelectorNumeros extends StatelessWidget {
+  const _SelectorNumeros();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        final cubit = context.read<ZonaInicialCubit>();
+        final sel = state.seleccionada;
+        final hayCelda = sel != null && !state.iniciada;
+        final valorSel = sel == null ? null : state.valores[sel];
+        final numeros = ZonaInicial.valoresRequeridos.toList()..sort();
+
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final n in numeros)
+              _BotonNumero(
+                numero: n,
+                marcado: valorSel == n,
+                habilitado:
+                    hayCelda && (!state.usados.contains(n) || valorSel == n),
+                onPressed: () => cubit.asignarASeleccionada(n),
+              ),
+            IconButton.outlined(
+              tooltip: 'Borrar casilla',
+              onPressed: hayCelda && valorSel != null
+                  ? cubit.borrarSeleccionada
+                  : null,
+              icon: const Icon(Icons.backspace_outlined),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BotonNumero extends StatelessWidget {
+  final int numero;
+  final bool marcado;
+  final bool habilitado;
+  final VoidCallback onPressed;
+
+  const _BotonNumero({
+    required this.numero,
+    required this.marcado,
+    required this.habilitado,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final estilo = ButtonStyle(
+      padding: WidgetStateProperty.all(EdgeInsets.zero),
+      minimumSize: WidgetStateProperty.all(const Size(52, 52)),
+    );
+    final hijo = Text('$numero', style: const TextStyle(fontSize: 20));
+    final callback = habilitado ? onPressed : null;
+
+    return SizedBox(
+      width: 52,
+      height: 52,
+      child: marcado
+          ? FilledButton(onPressed: callback, style: estilo, child: hijo)
+          : OutlinedButton(onPressed: callback, style: estilo, child: hijo),
+    );
+  }
+}
+
+class _BotonInicio extends StatelessWidget {
+  final TableroJuego tablero;
+
+  const _BotonInicio({required this.tablero});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        return SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton(
+            // Deshabilitado hasta que las 6 celdas sean válidas.
+            onPressed: state.esValida && !state.iniciada
+                ? () => context.read<ZonaInicialCubit>().aplicarATablero(tablero)
+                : null,
+            child: const Text('Inicio', style: TextStyle(fontSize: 18)),
+          ),
+        );
+      },
+    );
+  }
+}
