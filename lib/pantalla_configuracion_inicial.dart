@@ -90,6 +90,8 @@ class _MensajesAlUsuario extends StatelessWidget {
 ///  - 1 a 6 (fila superior o teclado numérico): coloca el número.
 ///  - Backspace / Delete: borra la casilla seleccionada.
 ///  - Flechas: mueven la selección entre las 6 casillas señaladas.
+///  - Cualquier otro carácter (letras, 0, 7, 8, 9, símbolos): aviso de que
+///    solo se permiten los números del 1 al 6.
 class _AtajosTeclado extends StatelessWidget {
   final Widget child;
 
@@ -136,7 +138,38 @@ class _AtajosTeclado extends StatelessWidget {
         const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
             cubit.moverSeleccion(-1),
       },
-      child: Focus(autofocus: true, child: child),
+      child: Focus(
+        autofocus: true,
+        // Se ejecuta ANTES que los atajos de arriba: deja pasar los números
+        // 1-6 y las teclas de control, y avisa con cualquier otro carácter.
+        onKeyEvent: (nodo, evento) {
+          if (evento is! KeyDownEvent) return KeyEventResult.ignored;
+
+          final teclado = HardwareKeyboard.instance;
+          if (teclado.isControlPressed ||
+              teclado.isMetaPressed ||
+              teclado.isAltPressed) {
+            return KeyEventResult.ignored; // Ctrl+R, Cmd+C, etc.
+          }
+
+          final caracter = evento.character;
+          if (caracter == null || caracter.trim().isEmpty) {
+            return KeyEventResult.ignored; // flechas, Enter, Tab, espacio...
+          }
+          if (caracter.length == 1 &&
+              caracter.codeUnitAt(0) >= 0x31 && // '1'
+              caracter.codeUnitAt(0) <= 0x36) {
+            return KeyEventResult.ignored; // número válido: lo maneja el atajo
+          }
+          if (caracter.codeUnitAt(0) < 0x20 || caracter.codeUnitAt(0) == 0x7F) {
+            return KeyEventResult.ignored; // Backspace, Delete, Escape...
+          }
+
+          cubit.rechazarEntrada(caracter);
+          return KeyEventResult.handled;
+        },
+        child: child,
+      ),
     );
   }
 }

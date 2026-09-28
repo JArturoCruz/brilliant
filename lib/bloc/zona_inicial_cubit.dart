@@ -73,6 +73,14 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     asignarValor(sel, null);
   }
 
+  /// Rechaza un carácter tecleado que no es un número del 1 al 6 y avisa
+  /// al usuario. No cambia ningún valor del tablero.
+  void rechazarEntrada(String caracter) {
+    if (state.iniciada) return;
+    _notificar('«$caracter» no es válido. '
+        'Solo se permiten los números del 1 al 6.');
+  }
+
   void _notificar(String mensaje) {
     emit(state.copyWith(mensaje: mensaje, mensajeId: state.mensajeId + 1));
   }
