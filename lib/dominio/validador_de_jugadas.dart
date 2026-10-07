@@ -1,6 +1,7 @@
 import 'region.dart';
 import 'tablero.dart';
-import 'tipo.dart';
+import 'tipos/estado_region.dart';
+import 'tipos/tipos_de_region.dart';
 import 'topologia_tablero.dart';
 
 /// Responsable ÚNICAMENTE de orquestar la validación de jugadas: combina

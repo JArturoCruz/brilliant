@@ -1,9 +1,6 @@
-import 'package:brilliant/tablero.dart';
-import 'package:brilliant/zona_inicial_cubit.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // Agregado para usar Bloc
-// Asegúrate de importar el archivo donde esté tu ZonaInicialCubit:
-// import 'package:brilliant/zona_inicial.dart'; 
+
+import 'pantalla_configuracion_inicial.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,56 +12,313 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Brilliant',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const PantallaConfiguracionInicial(),
     );
   }
 }
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+import 'bloc/zona_inicial_cubit.dart';
+import 'tablero.dart';
+import 'tablero_widget.dart';
+import 'zona_inicial.dart';
 
-  final String title;
+/// Pantalla de configuración inicial: el ZonaInicialCubit vive solo aquí
+/// (estado local) y se descarta al salir de esta pantalla.
+class PantallaConfiguracionInicial extends StatefulWidget {
+  const PantallaConfiguracionInicial({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<PantallaConfiguracionInicial> createState() =>
+      _PantallaConfiguracionInicialState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  // 1. Instanciamos la variable 'tablero' que necesita tu botón
+class _PantallaConfiguracionInicialState
+    extends State<PantallaConfiguracionInicial> {
   final TableroJuego tablero = TableroJuego();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 2. ESTE ES EXACTAMENTE TU CÓDIGO APLICADO
-            BlocProvider(
-              create: (_) => ZonaInicialCubit(),
-              child: BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
-                builder: (context, state) {
-                  return ElevatedButton(
-                    onPressed: state.esValida
-                        ? () => context.read<ZonaInicialCubit>().aplicarATablero(tablero)
-                        : null, // deshabilitado hasta que las 6 celdas sean válidas
-                    child: const Text('Continuar'),
-                  );
-                },
+    return BlocProvider(
+      create: (_) => ZonaInicialCubit(),
+      child: _AtajosTeclado(
+        child: _MensajesAlUsuario(
+          child: Scaffold(
+          appBar: AppBar(title: const Text('Brilliant')),
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const _Instruccion(),
+                      const SizedBox(height: 16),
+                      const TableroWidget(),
+                      const SizedBox(height: 20),
+                      const _SelectorNumeros(),
+                      const SizedBox(height: 20),
+                      _BotonInicio(tablero: tablero),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
+          ),
+        ),
         ),
       ),
+    );
+  }
+}
+
+/// Muestra en un SnackBar los avisos que emite el cubit (p. ej. al intentar
+/// repetir un número). Funciona igual con mouse, botones y teclado.
+class _MensajesAlUsuario extends StatelessWidget {
+  final Widget child;
+
+  const _MensajesAlUsuario({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<ZonaInicialCubit, ZonaInicialState>(
+      listenWhen: (previo, actual) =>
+          actual.mensajeId != previo.mensajeId && actual.mensaje != null,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(state.mensaje!),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+      },
+      child: child,
+    );
+  }
+}
+
+/// Traduce el teclado a llamadas al cubit:
+///  - 1 a 6 (fila superior o teclado numérico): coloca el número.
+///  - Backspace / Delete: borra la casilla seleccionada.
+///  - Flechas: mueven la selección entre las 6 casillas señaladas.
+///  - Cualquier otro carácter (letras, 0, 7, 8, 9, símbolos): aviso de que
+///    solo se permiten los números del 1 al 6.
+class _AtajosTeclado extends StatelessWidget {
+  final Widget child;
+
+  const _AtajosTeclado({required this.child});
+
+  static const _digitos = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+  ];
+
+  static const _numpad = [
+    LogicalKeyboardKey.numpad1,
+    LogicalKeyboardKey.numpad2,
+    LogicalKeyboardKey.numpad3,
+    LogicalKeyboardKey.numpad4,
+    LogicalKeyboardKey.numpad5,
+    LogicalKeyboardKey.numpad6,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<ZonaInicialCubit>();
+
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        for (var i = 0; i < 6; i++) ...{
+          SingleActivator(_digitos[i]): () => cubit.asignarASeleccionada(i + 1),
+          SingleActivator(_numpad[i]): () => cubit.asignarASeleccionada(i + 1),
+        },
+        const SingleActivator(LogicalKeyboardKey.backspace):
+            cubit.borrarSeleccionada,
+        const SingleActivator(LogicalKeyboardKey.delete):
+            cubit.borrarSeleccionada,
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+            cubit.moverSeleccion(1),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+            cubit.moverSeleccion(1),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+            cubit.moverSeleccion(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+            cubit.moverSeleccion(-1),
+      },
+      child: Focus(
+        autofocus: true,
+        // Se ejecuta ANTES que los atajos de arriba: deja pasar los números
+        // 1-6 y las teclas de control, y avisa con cualquier otro carácter.
+        onKeyEvent: (nodo, evento) {
+          if (evento is! KeyDownEvent) return KeyEventResult.ignored;
+
+          final teclado = HardwareKeyboard.instance;
+          if (teclado.isControlPressed ||
+              teclado.isMetaPressed ||
+              teclado.isAltPressed) {
+            return KeyEventResult.ignored; // Ctrl+R, Cmd+C, etc.
+          }
+
+          final caracter = evento.character;
+          if (caracter == null || caracter.trim().isEmpty) {
+            return KeyEventResult.ignored; // flechas, Enter, Tab, espacio...
+          }
+          if (caracter.length == 1 &&
+              caracter.codeUnitAt(0) >= 0x31 && // '1'
+              caracter.codeUnitAt(0) <= 0x36) {
+            return KeyEventResult.ignored; // número válido: lo maneja el atajo
+          }
+          if (caracter.codeUnitAt(0) < 0x20 || caracter.codeUnitAt(0) == 0x7F) {
+            return KeyEventResult.ignored; // Backspace, Delete, Escape...
+          }
+
+          cubit.rechazarEntrada(caracter);
+          return KeyEventResult.handled;
+        },
+        child: child,
+      ),
+    );
+  }
+}
+
+class _Instruccion extends StatelessWidget {
+  const _Instruccion();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        final texto = state.iniciada
+            ? '¡Configuración lista!'
+            : 'Toca una casilla señalada y coloca los números del 1 al 6 '
+                'sin repetir (${state.cantidadLlenas}/'
+                '${ZonaInicial.cantidadCeldas})';
+        return Text(
+          texto,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        );
+      },
+    );
+  }
+}
+
+class _SelectorNumeros extends StatelessWidget {
+  const _SelectorNumeros();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        final cubit = context.read<ZonaInicialCubit>();
+        final sel = state.seleccionada;
+        final hayCelda = sel != null && !state.iniciada;
+        final valorSel = sel == null ? null : state.valores[sel];
+        final numeros = ZonaInicial.valoresRequeridos.toList()..sort();
+
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final n in numeros)
+              _BotonNumero(
+                numero: n,
+                marcado: valorSel == n,
+                habilitado: hayCelda,
+                usadoEnOtra: state.usados.contains(n) && valorSel != n,
+                onPressed: () => cubit.asignarASeleccionada(n),
+              ),
+            IconButton.outlined(
+              tooltip: 'Borrar casilla',
+              onPressed: hayCelda && valorSel != null
+                  ? cubit.borrarSeleccionada
+                  : null,
+              icon: const Icon(Icons.backspace_outlined),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BotonNumero extends StatelessWidget {
+  final int numero;
+  final bool marcado;
+  final bool habilitado;
+  final bool usadoEnOtra;
+  final VoidCallback onPressed;
+
+  const _BotonNumero({
+    required this.numero,
+    required this.marcado,
+    required this.habilitado,
+    required this.usadoEnOtra,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final estilo = ButtonStyle(
+      padding: WidgetStateProperty.all(EdgeInsets.zero),
+      minimumSize: WidgetStateProperty.all(const Size(52, 52)),
+      // Atenuado si ya está en otra casilla, pero sigue tocable (avisa).
+      foregroundColor: usadoEnOtra
+          ? WidgetStateProperty.all(Theme.of(context).disabledColor)
+          : null,
+    );
+    final hijo = Text('$numero', style: const TextStyle(fontSize: 20));
+    final callback = habilitado ? onPressed : null;
+
+    return SizedBox(
+      width: 52,
+      height: 52,
+      child: marcado
+          ? FilledButton(onPressed: callback, style: estilo, child: hijo)
+          : OutlinedButton(onPressed: callback, style: estilo, child: hijo),
+    );
+  }
+}
+
+class _BotonInicio extends StatelessWidget {
+  final TableroJuego tablero;
+
+  const _BotonInicio({required this.tablero});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+      builder: (context, state) {
+        return SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton(
+            // Deshabilitado hasta que las 6 celdas sean válidas.
+            onPressed: state.esValida && !state.iniciada
+                ? () => context.read<ZonaInicialCubit>().aplicarATablero(tablero)
+                : null,
+            child: const Text('Inicio', style: TextStyle(fontSize: 18)),
+          ),
+        );
+      },
     );
   }
 }
@@ -146,6 +400,126 @@ class TableroJuego {
     final posiciones = TopologiaTablero.posicionesDe(region);
     return posiciones.map((p) => _matriz[p.fila][p.columna]).toList();
   }
+}
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'region.dart';
+import 'tipo.dart';
+import 'topologia_tablero.dart';
+import 'zona_inicial.dart';
+import 'bloc/zona_inicial_cubit.dart';
+
+/// Dibuja el tablero 7x7. Los colores salen de TopologiaTablero + Tipo,
+/// así que el diseño vive en un solo lugar. Las 6 celdas de la ZonaInicial
+/// se señalan con borde blanco y son interactivas mientras no se inicie.
+class TableroWidget extends StatelessWidget {
+  const TableroWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
+          builder: (context, state) {
+            return Column(
+              children: [
+                for (var f = 0; f < TopologiaTablero.filas; f++)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (var c = 0; c < TopologiaTablero.columnas; c++)
+                          Expanded(
+                            child: _Celda(posicion: Posicion(f, c), state: state),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Celda extends StatelessWidget {
+  final Posicion posicion;
+  final ZonaInicialState state;
+
+  const _Celda({required this.posicion, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final region =
+        TopologiaTablero.regionDeCelda(posicion.fila, posicion.columna);
+    final color = region == null
+        ? Colors.grey.shade800
+        : TiposDeRegion.obtenerTipo(region).color;
+
+    final esInicial = ZonaInicial.posiciones.contains(posicion);
+    final seleccionada = state.seleccionada == posicion;
+    final valor = state.valores[posicion];
+
+    Widget? contenido;
+    if (valor != null) {
+      contenido = _texto('$valor', Colors.white);
+    } else if (esInicial) {
+      contenido = _texto('?', Colors.white70);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: GestureDetector(
+        onTap: esInicial && !state.iniciada
+            ? () => context.read<ZonaInicialCubit>().seleccionarCelda(posicion)
+            : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(10),
+            border: esInicial
+                ? Border.all(color: Colors.white, width: seleccionada ? 4 : 2)
+                : null,
+            boxShadow: seleccionada
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withAlpha(160),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: contenido,
+        ),
+      ),
+    );
+  }
+
+  Widget _texto(String s, Color c) => Padding(
+        padding: const EdgeInsets.all(4),
+        child: FittedBox(
+          child: Text(
+            s,
+            style: TextStyle(
+              color: c,
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              shadows: const [Shadow(color: Colors.black38, blurRadius: 3)],
+            ),
+          ),
+        ),
+      );
 }
 import 'dart:ui';
 
@@ -524,8 +898,6 @@ class ZonaInicial {
         numeros.every(valoresRequeridos.contains);
   }
 }
-
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'region.dart';
@@ -533,39 +905,65 @@ import 'tablero.dart';
 import 'zona_inicial.dart';
 
 /// Estado del llenado de la ZonaInicial: el valor actual de cada una de
-/// sus 6 celdas, y si ya son válidos (1 a 6, sin repetir) para permitir
-/// avanzar en el juego.
+/// sus 6 celdas, cuál está seleccionada, si ya son válidos (1 a 6, sin
+/// repetir) y si la configuración ya fue confirmada con el botón Inicio.
 class ZonaInicialState {
   final Map<Posicion, int?> valores;
+  final Posicion? seleccionada;
   final bool esValida;
+  final bool iniciada;
 
-  const ZonaInicialState({required this.valores, required this.esValida});
+  const ZonaInicialState({
+    required this.valores,
+    required this.esValida,
+    this.seleccionada,
+    this.iniciada = false,
+  });
 
   factory ZonaInicialState.inicial() => ZonaInicialState(
         valores: {for (final pos in ZonaInicial.posiciones) pos: null},
         esValida: false,
+        // Arranca con la primera celda seleccionada para agilizar el llenado.
+        seleccionada: ZonaInicial.posiciones.first,
       );
 
-  ZonaInicialState copyWith({Map<Posicion, int?>? valores, bool? esValida}) {
+  /// Números ya colocados en alguna celda de la zona.
+  Set<int> get usados => valores.values.whereType<int>().toSet();
+
+  int get cantidadLlenas => valores.values.whereType<int>().length;
+
+  ZonaInicialState copyWith({
+    Map<Posicion, int?>? valores,
+    bool? esValida,
+    bool? iniciada,
+    Posicion? seleccionada,
+    bool limpiarSeleccion = false,
+  }) {
     return ZonaInicialState(
       valores: valores ?? this.valores,
       esValida: esValida ?? this.esValida,
+      iniciada: iniciada ?? this.iniciada,
+      seleccionada: limpiarSeleccion ? null : (seleccionada ?? this.seleccionada),
     );
   }
 }
 
-/// Cubit LOCAL: se crea y se descarta dentro de la pantalla/flujo de
-/// configuración inicial (por ejemplo con un BlocProvider alrededor de
-/// esa pantalla), no es estado global de la app. Su única responsabilidad
-/// es controlar el llenado de la ZonaInicial y decidir si ya se puede
-/// avanzar al resto del juego — no valida reglas de Tipo ni conoce el
-/// resto del tablero más allá de estas 6 celdas.
+/// Cubit LOCAL: controla el llenado de la ZonaInicial y decide si ya se
+/// puede avanzar al resto del juego.
 class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   ZonaInicialCubit() : super(ZonaInicialState.inicial());
+
+  /// Selecciona una celda de la ZonaInicial para colocarle un número.
+  void seleccionarCelda(Posicion posicion) {
+    if (state.iniciada) return;
+    if (!ZonaInicial.posiciones.contains(posicion)) return;
+    emit(state.copyWith(seleccionada: posicion));
+  }
 
   /// Asigna (o borra, con null) el valor de una celda de la ZonaInicial.
   /// No hace nada si la posición no pertenece a la ZonaInicial.
   void asignarValor(Posicion posicion, int? valor) {
+    if (state.iniciada) return;
     if (!ZonaInicial.posiciones.contains(posicion)) return;
 
     final nuevosValores = Map<Posicion, int?>.from(state.valores)
@@ -577,13 +975,44 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     ));
   }
 
-  /// Vuelca los valores de la ZonaInicial hacia el tablero real. No hace
-  /// nada si todavía no son válidos (protege el "no avanzar hasta que
-  /// estén completos" también del lado de los datos, no solo de la UI).
+  /// Coloca [numero] en la celda seleccionada. Ignora el número si ya está
+  /// usado en otra celda. Después avanza a la siguiente celda vacía.
+  void asignarASeleccionada(int numero) {
+    final sel = state.seleccionada;
+    if (sel == null || state.iniciada) return;
+
+    final usadoEnOtra = state.valores.entries
+        .any((e) => e.key != sel && e.value == numero);
+    if (usadoEnOtra) return;
+
+    asignarValor(sel, numero);
+    _avanzarASiguienteVacia();
+  }
+
+  /// Borra el valor de la celda seleccionada.
+  void borrarSeleccionada() {
+    final sel = state.seleccionada;
+    if (sel == null || state.iniciada) return;
+    asignarValor(sel, null);
+  }
+
+  void _avanzarASiguienteVacia() {
+    for (final pos in ZonaInicial.posiciones) {
+      if (state.valores[pos] == null) {
+        emit(state.copyWith(seleccionada: pos));
+        return;
+      }
+    }
+    // Todas llenas: se conserva la selección actual.
+  }
+
+  /// Vuelca los valores de la ZonaInicial hacia el tablero real y marca la
+  /// configuración como iniciada. No hace nada si todavía no son válidos.
   void aplicarATablero(TableroJuego tablero) {
-    if (!state.esValida) return;
+    if (!state.esValida || state.iniciada) return;
     for (final entrada in state.valores.entries) {
       tablero.asignarValor(entrada.key.fila, entrada.key.columna, entrada.value);
     }
+    emit(state.copyWith(iniciada: true, limpiarSeleccion: true));
   }
 }

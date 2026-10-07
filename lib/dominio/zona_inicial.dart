@@ -1,4 +1,4 @@
-import 'region.dart';
+import 'posicion.dart';
 
 /// Zona especial de configuración inicial de la partida: 6 celdas fijas,
 /// repartidas sobre distintas regiones de color, que deben llenarse con

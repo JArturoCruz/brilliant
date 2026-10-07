@@ -1,57 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'region.dart';
-import 'tipo.dart';
-import 'topologia_tablero.dart';
-import 'zona_inicial.dart';
-import 'bloc/zona_inicial_cubit.dart';
+import '../../bloc/zona_inicial_cubit.dart';
+import '../../dominio/posicion.dart';
+import '../../dominio/tipos/tipos_de_region.dart';
+import '../../dominio/topologia_tablero.dart';
+import '../../dominio/zona_inicial.dart';
 
-/// Dibuja el tablero 7x7. Los colores salen de TopologiaTablero + Tipo,
-/// así que el diseño vive en un solo lugar. Las 6 celdas de la ZonaInicial
-/// se señalan con borde blanco y son interactivas mientras no se inicie.
-class TableroWidget extends StatelessWidget {
-  const TableroWidget({super.key});
+/// Una sola celda del tablero: su único trabajo es pintarse según su
+/// región y reaccionar al toque cuando pertenece a la ZonaInicial. No
+/// decide reglas de juego ni sabe nada del resto del tablero.
+class CeldaTableroWidget extends StatelessWidget {
+  const CeldaTableroWidget({
+    super.key,
+    required this.posicion,
+    required this.state,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: BlocBuilder<ZonaInicialCubit, ZonaInicialState>(
-          builder: (context, state) {
-            return Column(
-              children: [
-                for (var f = 0; f < TopologiaTablero.filas; f++)
-                  Expanded(
-                    child: Row(
-                      children: [
-                        for (var c = 0; c < TopologiaTablero.columnas; c++)
-                          Expanded(
-                            child: _Celda(posicion: Posicion(f, c), state: state),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _Celda extends StatelessWidget {
   final Posicion posicion;
   final ZonaInicialState state;
-
-  const _Celda({required this.posicion, required this.state});
 
   @override
   Widget build(BuildContext context) {

@@ -1,15 +1,28 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../region.dart';
-import '../tablero.dart';
-import '../zona_inicial.dart';
+import '../dominio/navegador_zona_inicial.dart';
+import '../dominio/posicion.dart';
+import '../dominio/tablero.dart';
+import '../dominio/validador_entrada_zona_inicial.dart';
+import '../dominio/zona_inicial.dart';
+import 'mensajes_zona_inicial.dart';
 
 part 'zona_inicial_state.dart';
 
 /// Cubit LOCAL: controla el llenado de la ZonaInicial y decide si ya se
-/// puede avanzar al resto del juego.
+/// puede avanzar al resto del juego. Delega en clases del dominio la
+/// validación de entradas y la navegación entre celdas; su única
+/// responsabilidad propia es orquestar esas piezas y emitir el estado.
 class ZonaInicialCubit extends Cubit<ZonaInicialState> {
-  ZonaInicialCubit() : super(ZonaInicialState.inicial());
+  ZonaInicialCubit({
+    ValidadorEntradaZonaInicial? validador,
+    NavegadorZonaInicial? navegador,
+  })  : _validador = validador ?? const ValidadorEntradaZonaInicial(),
+        _navegador = navegador ?? const NavegadorZonaInicial(),
+        super(ZonaInicialState.inicial());
+
+  final ValidadorEntradaZonaInicial _validador;
+  final NavegadorZonaInicial _navegador;
 
   /// Selecciona una celda de la ZonaInicial para colocarle un número.
   void seleccionarCelda(Posicion posicion) {
@@ -22,11 +35,9 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   /// Pensado para las flechas del teclado: -1 = anterior, 1 = siguiente.
   void moverSeleccion(int delta) {
     if (state.iniciada) return;
-    final posiciones = ZonaInicial.posiciones;
-    final actual =
-        state.seleccionada == null ? -1 : posiciones.indexOf(state.seleccionada!);
-    final siguiente = (actual + delta) % posiciones.length; // Dart: siempre >= 0
-    emit(state.copyWith(seleccionada: posiciones[siguiente]));
+    final siguiente =
+        _navegador.siguiente(ZonaInicial.posiciones, state.seleccionada, delta);
+    emit(state.copyWith(seleccionada: siguiente));
   }
 
   /// Asigna (o borra, con null) el valor de una celda de la ZonaInicial.
@@ -44,22 +55,17 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     ));
   }
 
-  /// Coloca [numero] en la celda seleccionada. Ignora el número si ya está
-  /// usado en otra celda o si no está en el rango 1-6. Después avanza a la
-  /// siguiente celda vacía.
+  /// Coloca [numero] en la celda seleccionada. Si ya está usado en otra
+  /// celda, no lo coloca y avisa en cuál está. Si no hay celda
+  /// seleccionada o el juego ya inició, no hace nada.
   void asignarASeleccionada(int numero) {
     final sel = state.seleccionada;
     if (sel == null || state.iniciada) return;
-    if (!ZonaInicial.valoresRequeridos.contains(numero)) return;
 
-    // Si el número ya está en otra casilla, se rechaza y se avisa dónde.
-    for (final e in state.valores.entries) {
-      if (e.key != sel && e.value == numero) {
-        _notificar('El $numero ya está en la casilla de la fila '
-            '${e.key.fila + 1}, columna ${e.key.columna + 1}. '
-            'Bórralo o cámbialo primero.');
-        return;
-      }
+    final conflicto = _validador.conflictoAl(state.valores, sel, numero);
+    if (conflicto != null) {
+      _notificar(MensajesZonaInicial.numeroRepetido(numero, conflicto));
+      return;
     }
 
     asignarValor(sel, numero);
@@ -77,22 +83,18 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   /// al usuario. No cambia ningún valor del tablero.
   void rechazarEntrada(String caracter) {
     if (state.iniciada) return;
-    _notificar('«$caracter» no es válido. '
-        'Solo se permiten los números del 1 al 6.');
+    _notificar(MensajesZonaInicial.caracterInvalido(caracter));
+  }
+
+  void _avanzarASiguienteVacia() {
+    final vacia =
+        _navegador.siguienteVacia(ZonaInicial.posiciones, state.valores);
+    if (vacia != null) emit(state.copyWith(seleccionada: vacia));
+    // Si no hay ninguna vacía, se conserva la selección actual.
   }
 
   void _notificar(String mensaje) {
     emit(state.copyWith(mensaje: mensaje, mensajeId: state.mensajeId + 1));
-  }
-
-  void _avanzarASiguienteVacia() {
-    for (final pos in ZonaInicial.posiciones) {
-      if (state.valores[pos] == null) {
-        emit(state.copyWith(seleccionada: pos));
-        return;
-      }
-    }
-    // Todas llenas: se conserva la selección actual.
   }
 
   /// Vuelca los valores de la ZonaInicial hacia el tablero real y marca la

@@ -1,3 +1,4 @@
+import 'posicion.dart';
 import 'region.dart';
 
 /// Responsable ÚNICAMENTE de conocer el diseño fijo del tablero: qué

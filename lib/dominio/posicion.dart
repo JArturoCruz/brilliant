@@ -1,3 +1,6 @@
+/// Coordenada (fila, columna) dentro del tablero. Su única responsabilidad
+/// es identificar una celda y permitir compararla (==, hashCode) para
+/// poder usarla como clave de Map o elemento de Set.
 class Posicion {
   final int fila;
   final int columna;
@@ -17,16 +20,4 @@ class Posicion {
 
   @override
   String toString() => '($fila, $columna)';
-}
-
-enum RegionTablero {
-  amarilla,
-  verde1,
-  verde2,
-  azul1,
-  azul2,
-  morada1,
-  morada2,
-  roja1,
-  roja2,
 }

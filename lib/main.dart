@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'pantalla_configuracion_inicial.dart';
+import 'presentacion/pantalla_configuracion_inicial.dart';
 
 void main() {
   runApp(const MyApp());

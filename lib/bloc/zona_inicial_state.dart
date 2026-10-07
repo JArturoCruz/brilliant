@@ -2,7 +2,8 @@ part of 'zona_inicial_cubit.dart';
 
 /// Estado del llenado de la ZonaInicial: el valor actual de cada una de
 /// sus 6 celdas, cuál está seleccionada, si ya son válidos (1 a 6, sin
-/// repetir) y si la configuración ya fue confirmada con el botón Inicio.
+/// repetir), si la configuración ya fue confirmada con el botón Inicio, y
+/// el último aviso a mostrar (si lo hay).
 class ZonaInicialState {
   final Map<Posicion, int?> valores;
   final Posicion? seleccionada;
