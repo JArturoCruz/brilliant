@@ -6,6 +6,7 @@ KeyDownEvent _down(String caracter) => KeyDownEvent(
       physicalKey: PhysicalKeyboardKey.keyA,
       logicalKey: LogicalKeyboardKey.keyA,
       character: caracter,
+      timeStamp: Duration.zero,
     );
 
 void main() {
@@ -50,6 +51,7 @@ void main() {
       final evento = KeyDownEvent(
         physicalKey: PhysicalKeyboardKey.arrowRight,
         logicalKey: LogicalKeyboardKey.arrowRight,
+        timeStamp: Duration.zero,
       );
       final resultado = clasificador.clasificar(evento, teclado);
       expect(resultado.tipo, TipoTecla.ignorar);
@@ -59,6 +61,7 @@ void main() {
       const evento = KeyUpEvent(
         physicalKey: PhysicalKeyboardKey.digit3,
         logicalKey: LogicalKeyboardKey.digit3,
+        timeStamp: Duration.zero,
       );
       final resultado = clasificador.clasificar(evento, teclado);
       expect(resultado.tipo, TipoTecla.ignorar);
