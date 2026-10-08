@@ -1,3 +1,5 @@
+import 'package:brilliant/bloc/juego_bloc.dart';
+import 'package:brilliant/bloc/juego_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -21,7 +23,19 @@ class BotonInicio extends StatelessWidget {
           child: FilledButton(
             // Deshabilitado hasta que las 6 celdas sean válidas.
             onPressed: state.esValida && !state.iniciada
-                ? () => context.read<ZonaInicialCubit>().aplicarATablero(tablero)
+                ? () {
+                    // 1. Tu lógica original: Aplica la configuración de las 6 zonas
+                    context.read<ZonaInicialCubit>().aplicarATablero(tablero);
+
+                    // 2. Filtramos el mapa para garantizar que no haya nulos y coincida el tipo
+                    final valoresValidos = {
+                      for (final entry in state.valores.entries)
+                        if (entry.value != null) entry.key: entry.value!
+                    };
+
+                    // 3. Le pasamos las 6 posiciones validadas al BLoC y tiramos dados
+                    context.read<JuegoBloc>().add(IniciarTurno(valoresValidos));
+                  }
                 : null,
             child: const Text('Inicio', style: TextStyle(fontSize: 18)),
           ),

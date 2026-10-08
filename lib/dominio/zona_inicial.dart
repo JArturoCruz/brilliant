@@ -10,12 +10,12 @@ class ZonaInicial {
   ZonaInicial._();
 
   static const List<Posicion> posiciones = [
-    Posicion(2, 0), // pertenece a verde1
-    Posicion(5, 1), // pertenece a roja1
-    Posicion(1, 3), // pertenece a azul1
-    Posicion(4, 3), // pertenece a morada2
-    Posicion(2, 5), // pertenece a verde2
-    Posicion(4, 6), // pertenece a azul2
+    Posicion(0, 2), // pertenece a verde1
+    Posicion(3, 1), // pertenece a roja1
+    Posicion(1, 5), // pertenece a azul1
+    Posicion(3, 4), // pertenece a morada2
+    Posicion(5, 2), // pertenece a verde2
+    Posicion(6, 4), // pertenece a azul2
   ];
 
   static const int cantidadCeldas = 6;

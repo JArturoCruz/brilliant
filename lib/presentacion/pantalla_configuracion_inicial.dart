@@ -1,3 +1,6 @@
+import 'package:brilliant/bloc/juego_bloc.dart';
+import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,9 +13,6 @@ import 'widgets/instruccion_zona_inicial.dart';
 import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
 
-/// Pantalla de configuración inicial. Su única responsabilidad es componer
-/// el layout a partir de widgets ya resueltos en otro lado (instrucción,
-/// tablero, selector, botón) y proveer el Cubit local que todos comparten.
 class PantallaConfiguracionInicial extends StatefulWidget {
   const PantallaConfiguracionInicial({super.key});
 
@@ -46,9 +46,25 @@ class _PantallaConfiguracionInicialState
                         const SizedBox(height: 16),
                         const TableroWidget(),
                         const SizedBox(height: 20),
-                        const SelectorNumerosZonaInicial(),
-                        const SizedBox(height: 20),
-                        BotonInicio(tablero: tablero),
+                        
+                        // Envolvemos la parte inferior en un BlocBuilder de JuegoBloc
+                        BlocBuilder<JuegoBloc, JuegoState>(
+                          builder: (context, juegoState) {
+                            // Si el juego no ha iniciado, mostramos el botón y el selector original
+                            if (juegoState.fase == FaseTurno.inicio) {
+                              return Column(
+                                children: [
+                                  const SelectorNumerosZonaInicial(),
+                                  const SizedBox(height: 20),
+                                  BotonInicio(tablero: tablero),
+                                ],
+                              );
+                            }
+                            
+                            // Si el juego ya inició, ocultamos el botón y mostramos el panel de dados
+                            return const PanelDados();
+                          },
+                        ),
                       ],
                     ),
                   ),

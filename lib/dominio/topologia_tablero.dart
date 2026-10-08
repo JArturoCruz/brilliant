@@ -31,6 +31,7 @@ class TopologiaTablero {
 
     // Verde 2: Bloque lateral derecho
     RegionTablero.verde2: [
+       Posicion(3, 4),
       Posicion(1, 6),
       Posicion(2, 5),
       Posicion(2, 6),
@@ -86,7 +87,6 @@ class TopologiaTablero {
 
     // Roja 2: Bloque medio derecho
     RegionTablero.roja2: [
-      Posicion(3, 4),
       Posicion(4, 4),
       Posicion(4, 5),
       Posicion(5, 3),
