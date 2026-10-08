@@ -1,7 +1,13 @@
 import 'package:brilliant/dominio/casilla.dart';
 
-// Agregamos turnoTerminado
-enum FaseTurno { inicio, seleccionandoAncla, seleccionandoCasilla, colocandoNumero, turnoTerminado }
+enum FaseTurno { 
+  inicio, 
+  seleccionandoAncla, 
+  seleccionandoCasilla, 
+  colocandoNumero, 
+  confirmandoJugada, 
+  turnoTerminado 
+}
 
 class JuegoState {
   final List<List<Casilla>> tablero; 
@@ -10,7 +16,11 @@ class JuegoState {
   final int? dado2;
   final int? numeroAncla;
   final int? numeroColocar;
-  final int? indiceDadoAncla; // NUEVO: Para saber qué dado se eligió como ancla
+  final int? indiceDadoAncla;
+  final int? filaProvisional;
+  final int? columnaProvisional;
+  final int? filaAncla;
+  final int? columnaAncla;
 
   JuegoState({
     required this.tablero,
@@ -20,6 +30,10 @@ class JuegoState {
     this.numeroAncla,
     this.numeroColocar,
     this.indiceDadoAncla,
+    this.filaProvisional,
+    this.columnaProvisional,
+    this.filaAncla,
+    this.columnaAncla,
   });
 
   JuegoState copyWith({
@@ -30,6 +44,10 @@ class JuegoState {
     int? numeroAncla,
     int? numeroColocar,
     int? indiceDadoAncla,
+    int? filaProvisional,
+    int? columnaProvisional,
+    int? filaAncla,
+    int? columnaAncla,
   }) {
     return JuegoState(
       tablero: tablero ?? this.tablero,
@@ -39,6 +57,10 @@ class JuegoState {
       numeroAncla: numeroAncla ?? this.numeroAncla,
       numeroColocar: numeroColocar ?? this.numeroColocar,
       indiceDadoAncla: indiceDadoAncla ?? this.indiceDadoAncla,
+      filaProvisional: filaProvisional ?? this.filaProvisional,
+      columnaProvisional: columnaProvisional ?? this.columnaProvisional,
+      filaAncla: filaAncla ?? this.filaAncla,
+      columnaAncla: columnaAncla ?? this.columnaAncla,
     );
   }
 }

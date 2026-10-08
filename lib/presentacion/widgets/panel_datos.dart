@@ -19,7 +19,9 @@ class PanelDados extends StatelessWidget {
         } else if (state.fase == FaseTurno.seleccionandoCasilla) {
           mensaje = 'Toca una casilla amarilla o cambia de dado.';
         } else if (state.fase == FaseTurno.colocandoNumero) {
-          mensaje = 'Coloca el número verde o toca la celda ancla para cambiar.';
+          mensaje = 'Coloca el número verde.';
+        } else if (state.fase == FaseTurno.confirmandoJugada) {
+          mensaje = '¿Confirmas colocar el ${state.numeroColocar}?';
         } else if (state.fase == FaseTurno.turnoTerminado) {
           mensaje = '¡Turno terminado!';
         }
@@ -66,6 +68,23 @@ class PanelDados extends StatelessWidget {
                 ),
               ],
             ),
+            if (state.fase == FaseTurno.confirmandoJugada) ...[
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => context.read<JuegoBloc>().add(CancelarConfirmacion()),
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton(
+                    onPressed: () => context.read<JuegoBloc>().add(ConfirmarJugada()),
+                    child: const Text('Confirmar Jugada'),
+                  ),
+                ],
+              ),
+            ],
             if (state.fase == FaseTurno.turnoTerminado) ...[
               const SizedBox(height: 20),
               FilledButton(

@@ -31,5 +31,8 @@ class ColocarNumero extends JuegoEvent {
   ColocarNumero(this.fila, this.columna);
 }
 
-// NUEVO EVENTO: Permite cancelar o reelegir el ancla
 class CancelarSeleccionAncla extends JuegoEvent {}
+
+// NUEVOS EVENTOS
+class ConfirmarJugada extends JuegoEvent {}
+class CancelarConfirmacion extends JuegoEvent {}
