@@ -1,6 +1,8 @@
 import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/dado.dart';
+import 'package:brilliant/dominio/tipos/tipo.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../dominio/region.dart'; // Necesario para identificar las regiones
 import 'juego_event.dart';
 import 'juego_state.dart';
 
@@ -146,7 +148,6 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   void _onColocarNumero(ColocarNumero event, Emitter<JuegoState> emit) {
     if (state.tablero[event.fila][event.columna].iluminacion != EstadoIluminacion.posibleColocacion) return;
 
-    // NO alteramos el tablero todavía. Solo guardamos la posición provisional y cambiamos de fase.
     var nuevoTablero = state.tablero.map((row) => row.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList()).toList();
 
     emit(state.copyWith(
@@ -165,10 +166,35 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
 
     var nuevoTablero = state.tablero.map((row) => row.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList()).toList();
     
-    // AQUÍ Y SOLO AQUÍ se aplica permanentemente el número en el tablero oficial
+    // 1. Aplicamos permanentemente el número en el tablero oficial
     nuevoTablero[f][c] = nuevoTablero[f][c].copyWith(
       valorActual: state.numeroColocar,
     );
+
+    // 2. VERIFICACIÓN Y CÁLCULO DE PUNTUACIÓN DE ZONAS COMPLETADAS
+    int puntosNuevos = 0;
+    var nuevasRegionesCompletadas = Set<RegionTablero>.from(state.regionesCompletadas);
+    var nuevoContadorTipos = Map<String, int>.from(state.contadorCompletadasPorTipo);
+
+    // Obtenemos todas las regiones existentes en el tablero
+    for (var region in RegionTablero.values) {
+      if (nuevasRegionesCompletadas.contains(region)) continue; // Si ya estaba completa, la ignoramos
+
+      if (_esRegionCompleta(nuevoTablero, region)) {
+        nuevasRegionesCompletadas.add(region);
+        
+        // Obtenemos el tipo (región de color) para consultar sus puntos
+        final tipo = TiposDeRegion.obtenerTipo(region);
+        final tipoKey = tipo.runtimeType.toString(); // Identificador del tipo (ej. "TipoAzul")
+
+        // Incrementamos la posición de finalización para este tipo de zona (1°, 2°, 3°...)
+        int posicionActual = (nuevoContadorTipos[tipoKey] ?? 0) + 1;
+        nuevoContadorTipos[tipoKey] = posicionActual;
+
+        // Otorgamos los puntos según la regla del tipo
+        puntosNuevos += tipo.puntosPorPosicion(posicionActual);
+      }
+    }
 
     emit(state.copyWith(
       tablero: nuevoTablero,
@@ -177,6 +203,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       columnaProvisional: null,
       filaAncla: null,
       columnaAncla: null,
+      puntuacionTotal: state.puntuacionTotal + puntosNuevos,
+      regionesCompletadas: nuevasRegionesCompletadas,
+      contadorCompletadasPorTipo: nuevoContadorTipos,
     ));
   }
 
@@ -184,18 +213,18 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     if (state.filaAncla == null) return;
 
     int fAncla = state.filaAncla!;
+    int cAncla = state.columnaAncla ?? 0;
 
-    // El tablero NO se modificó, por lo que limpiamos las luces y restauramos las opciones verdes originales del ancla
     var nuevoTablero = state.tablero.map((row) => row.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList()).toList();
 
-    nuevoTablero[fAncla][cAnclaSegura(state.columnaAncla!)] = nuevoTablero[fAncla][cAnclaSegura(state.columnaAncla!)].copyWith(
+    nuevoTablero[fAncla][cAncla] = nuevoTablero[fAncla][cAncla].copyWith(
       iluminacion: EstadoIluminacion.posibleAncla,
     );
 
     final movimientos = [[-1, 0], [1, 0], [0, -1], [0, 1]];
     for (var mov in movimientos) {
       int nFila = fAncla + mov[0];
-      int nCol = cAnclaSegura(state.columnaAncla!) + mov[1];
+      int nCol = cAncla + mov[1];
       if (nFila >= 0 && nFila < 7 && nCol >= 0 && nCol < 7) {
         if (nuevoTablero[nFila][nCol].valorActual == null) {
           bool movimientoPermitido = _validarReglaDeRegion(nFila, nCol, state.numeroColocar!);
@@ -216,7 +245,21 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     ));
   }
 
-  int cAnclaSegura(int c) => c;
+  /// Método auxiliar para verificar si todas las celdas de una región específica están llenas
+  bool _esRegionCompleta(List<List<Casilla>> tablero, RegionTablero regionBuscada) {
+    bool alMenosUnaCelda = false;
+    for (var f = 0; f < TopologiaTablero.filas; f++) {
+      for (var c = 0; c < TopologiaTablero.columnas; c++) {
+        if (TopologiaTablero.regionDeCelda(f, c) == regionBuscada) {
+          alMenosUnaCelda = true;
+          if (tablero[f][c].valorActual == null) {
+            return false; // Hay al menos una celda vacía en esta región
+          }
+        }
+      }
+    }
+    return alMenosUnaCelda;
+  }
 
   bool _validarReglaDeRegion(int fDestino, int cDestino, int numeroColocar) {
     final regionDestino = TopologiaTablero.regionDeCelda(fDestino, cDestino);

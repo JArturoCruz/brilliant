@@ -1,5 +1,7 @@
 import 'package:brilliant/dominio/casilla.dart';
 
+import '../../dominio/region.dart'; // Asegúrate de importar RegionTablero si es necesario
+
 enum FaseTurno { 
   inicio, 
   seleccionandoAncla, 
@@ -21,6 +23,10 @@ class JuegoState {
   final int? columnaProvisional;
   final int? filaAncla;
   final int? columnaAncla;
+  
+  final int puntuacionTotal; // NUEVO: Acumulador de puntos
+  final Set<RegionTablero> regionesCompletadas; // NUEVO: Evita puntuar la misma región dos veces
+  final Map<String, int> contadorCompletadasPorTipo; // NUEVO: Lleva el ranking (1°, 2°, 3°)
 
   JuegoState({
     required this.tablero,
@@ -34,6 +40,9 @@ class JuegoState {
     this.columnaProvisional,
     this.filaAncla,
     this.columnaAncla,
+    this.puntuacionTotal = 0,
+    this.regionesCompletadas = const {},
+    this.contadorCompletadasPorTipo = const {},
   });
 
   JuegoState copyWith({
@@ -48,6 +57,9 @@ class JuegoState {
     int? columnaProvisional,
     int? filaAncla,
     int? columnaAncla,
+    int? puntuacionTotal,
+    Set<RegionTablero>? regionesCompletadas,
+    Map<String, int>? contadorCompletadasPorTipo,
   }) {
     return JuegoState(
       tablero: tablero ?? this.tablero,
@@ -61,6 +73,9 @@ class JuegoState {
       columnaProvisional: columnaProvisional ?? this.columnaProvisional,
       filaAncla: filaAncla ?? this.filaAncla,
       columnaAncla: columnaAncla ?? this.columnaAncla,
+      puntuacionTotal: puntuacionTotal ?? this.puntuacionTotal,
+      regionesCompletadas: regionesCompletadas ?? this.regionesCompletadas,
+      contadorCompletadasPorTipo: contadorCompletadasPorTipo ?? this.contadorCompletadasPorTipo,
     );
   }
 }
