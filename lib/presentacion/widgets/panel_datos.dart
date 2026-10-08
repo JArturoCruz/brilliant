@@ -4,7 +4,6 @@ import 'package:brilliant/bloc/juego_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-
 class PanelDados extends StatelessWidget {
   const PanelDados({super.key});
 
@@ -12,19 +11,22 @@ class PanelDados extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, state) {
-        // Los dados se muestran siempre que tengan un valor
         if (state.dado1 == null || state.dado2 == null) return const SizedBox.shrink();
 
         String mensaje = '';
         if (state.fase == FaseTurno.seleccionandoAncla) {
           mensaje = 'Elige qué dado será tu ancla:';
         } else if (state.fase == FaseTurno.seleccionandoCasilla) {
-          mensaje = 'Toca una casilla amarilla para tu ancla.';
+          mensaje = 'Toca una casilla amarilla o cambia de dado.';
         } else if (state.fase == FaseTurno.colocandoNumero) {
-          mensaje = 'Coloca el número verde en una casilla verde.';
+          mensaje = 'Coloca el número verde o toca la celda ancla para cambiar.';
         } else if (state.fase == FaseTurno.turnoTerminado) {
           mensaje = '¡Turno terminado!';
         }
+
+        bool permitirCambioDado = state.fase == FaseTurno.seleccionandoAncla || 
+                                 state.fase == FaseTurno.seleccionandoCasilla || 
+                                 state.fase == FaseTurno.colocandoNumero;
 
         return Column(
           children: [
@@ -41,34 +43,32 @@ class PanelDados extends StatelessWidget {
                   valor: state.dado1!,
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
-                  onTap: state.fase == FaseTurno.seleccionandoAncla
+                  onTap: permitirCambioDado
                       ? () => context.read<JuegoBloc>().add(SeleccionarNumeroAncla(
                             numeroElegido: state.dado1!,
                             numeroParaColocar: state.dado2!,
-                            indiceDado: 1, // Avisamos que tocó el dado 1
+                            indiceDado: 1,
                           ))
-                      : null, // Si ya eligió, desactiva el clic
+                      : null,
                 ),
                 const SizedBox(width: 32),
                 _BotonDado(
                   valor: state.dado2!,
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
-                  onTap: state.fase == FaseTurno.seleccionandoAncla
+                  onTap: permitirCambioDado
                       ? () => context.read<JuegoBloc>().add(SeleccionarNumeroAncla(
                             numeroElegido: state.dado2!,
                             numeroParaColocar: state.dado1!,
-                            indiceDado: 2, // Avisamos que tocó el dado 2
+                            indiceDado: 2,
                           ))
-                      : null, // Si ya eligió, desactiva el clic
+                      : null,
                 ),
               ],
             ),
-            // Si el turno terminó, mostramos botón para tirar de nuevo
             if (state.fase == FaseTurno.turnoTerminado) ...[
               const SizedBox(height: 20),
               FilledButton(
-                // Al enviar un mapa vacío {}, respeta los números que ya están en el tablero
                 onPressed: () => context.read<JuegoBloc>().add(IniciarTurno(const {})),
                 child: const Text('Siguiente Turno'),
               ),
@@ -99,7 +99,6 @@ class _BotonDado extends StatelessWidget {
     Color colorBorde = Colors.deepPurple;
     Color colorTexto = Colors.deepPurple;
     
-    // Cambiamos colores según el rol del dado para dar feedback visual
     if (esAncla) {
       colorFondo = Colors.yellow.shade100;
       colorBorde = Colors.orange;
