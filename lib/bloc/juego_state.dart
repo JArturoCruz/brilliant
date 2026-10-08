@@ -1,14 +1,16 @@
 import 'package:brilliant/dominio/casilla.dart';
 
-enum FaseTurno { inicio, seleccionandoAncla, seleccionandoCasilla, colocandoNumero }
+// Agregamos turnoTerminado
+enum FaseTurno { inicio, seleccionandoAncla, seleccionandoCasilla, colocandoNumero, turnoTerminado }
 
 class JuegoState {
-  final List<List<Casilla>> tablero; // Tablero de 7x7
+  final List<List<Casilla>> tablero; 
   final FaseTurno fase;
   final int? dado1;
   final int? dado2;
   final int? numeroAncla;
   final int? numeroColocar;
+  final int? indiceDadoAncla; // NUEVO: Para saber qué dado se eligió como ancla
 
   JuegoState({
     required this.tablero,
@@ -17,6 +19,7 @@ class JuegoState {
     this.dado2,
     this.numeroAncla,
     this.numeroColocar,
+    this.indiceDadoAncla,
   });
 
   JuegoState copyWith({
@@ -26,6 +29,7 @@ class JuegoState {
     int? dado2,
     int? numeroAncla,
     int? numeroColocar,
+    int? indiceDadoAncla,
   }) {
     return JuegoState(
       tablero: tablero ?? this.tablero,
@@ -34,6 +38,7 @@ class JuegoState {
       dado2: dado2 ?? this.dado2,
       numeroAncla: numeroAncla ?? this.numeroAncla,
       numeroColocar: numeroColocar ?? this.numeroColocar,
+      indiceDadoAncla: indiceDadoAncla ?? this.indiceDadoAncla,
     );
   }
 }

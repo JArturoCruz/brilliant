@@ -10,11 +10,24 @@ class IniciarTurno extends JuegoEvent {
 class SeleccionarNumeroAncla extends JuegoEvent {
   final int numeroElegido;
   final int numeroParaColocar;
-  SeleccionarNumeroAncla({required this.numeroElegido, required this.numeroParaColocar});
+  final int indiceDado; // NUEVO: Para diferenciar si tocó el dado 1 o el 2
+  
+  SeleccionarNumeroAncla({
+    required this.numeroElegido, 
+    required this.numeroParaColocar,
+    required this.indiceDado,
+  });
 }
 
 class SeleccionarCasillaAncla extends JuegoEvent {
   final int fila;
   final int columna;
   SeleccionarCasillaAncla(this.fila, this.columna);
+}
+
+// NUEVO: Evento para colocar el segundo número en el tablero
+class ColocarNumero extends JuegoEvent {
+  final int fila;
+  final int columna;
+  ColocarNumero(this.fila, this.columna);
 }

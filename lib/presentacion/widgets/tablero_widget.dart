@@ -9,7 +9,6 @@ import '../../dominio/posicion.dart';
 import '../../dominio/topologia_tablero.dart';
 import 'celda_tablero_widget.dart';
 
-
 /// Arma la cuadrícula 7x7 a partir de TopologiaTablero. Su única
 /// responsabilidad es el layout del tablero; el pintado de cada celda vive
 /// en CeldaTableroWidget.
@@ -48,13 +47,16 @@ class TableroWidget extends StatelessWidget {
                                     // Verificamos si estamos en la fase de elegir el ancla en el tablero
                                     if (juegoState.fase == FaseTurno.seleccionandoCasilla) {
                                       context.read<JuegoBloc>().add(SeleccionarCasillaAncla(f, c));
+                                    } 
+                                    // NUEVO -> Fase: Colocando el número sobrante
+                                    else if (juegoState.fase == FaseTurno.colocandoNumero) {
+                                      context.read<JuegoBloc>().add(ColocarNumero(f, c));
                                     }
                                   },
                                   child: CeldaTableroWidget(
                                     posicion: Posicion(f, c),
                                     state: zonaState,
                                     // 4. PASAMOS LOS DATOS DEL JUEGO A LA CELDA
-                                 
                                     casillaJuego: juegoState.tablero[f][c], 
                                   ),
                                 ),
