@@ -32,7 +32,8 @@ class ColocarNumero extends JuegoEvent {
 }
 
 class CancelarSeleccionAncla extends JuegoEvent {}
-
-// NUEVOS EVENTOS
 class ConfirmarJugada extends JuegoEvent {}
 class CancelarConfirmacion extends JuegoEvent {}
+
+// NUEVO EVENTO
+class SaltarTurno extends JuegoEvent {}

@@ -2,7 +2,7 @@ import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/dado.dart';
 import 'package:brilliant/dominio/tipos/tipo.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../dominio/region.dart'; // Necesario para identificar las regiones
+import '../../dominio/region.dart';
 import 'juego_event.dart';
 import 'juego_state.dart';
 
@@ -18,6 +18,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     on<CancelarSeleccionAncla>(_onCancelarSeleccionAncla);
     on<ConfirmarJugada>(_onConfirmarJugada);
     on<CancelarConfirmacion>(_onCancelarConfirmacion);
+    on<SaltarTurno>(_onSaltarTurno); // NUEVO
   }
 
   static JuegoState _estadoInicial() {
@@ -36,16 +37,24 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
           nuevoTablero[posicion.fila][posicion.columna].copyWith(valorActual: valor);
     });
 
+    final dado1 = Dado.tirar();
+    final dado2 = Dado.tirar();
+    
+    // Registramos la tirada en el historial
+    final nuevoHistorial = List<String>.from(state.historial);
+    nuevoHistorial.insert(0, '🎲 Dados tirados: [$dado1] y [$dado2]');
+
     emit(state.copyWith(
       tablero: nuevoTablero,
-      dado1: Dado.tirar(),
-      dado2: Dado.tirar(),
+      dado1: dado1,
+      dado2: dado2,
       indiceDadoAncla: -1,
       fase: FaseTurno.seleccionandoAncla,
       filaProvisional: null,
       columnaProvisional: null,
       filaAncla: null,
       columnaAncla: null,
+      historial: nuevoHistorial,
     ));
   }
 
@@ -75,9 +84,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   void _onSeleccionarCasillaAncla(SeleccionarCasillaAncla event, Emitter<JuegoState> emit) {
     final casillaSeleccionada = state.tablero[event.fila][event.columna];
 
-    if (casillaSeleccionada.iluminacion != EstadoIluminacion.posibleAncla) {
-      return;
-    }
+    if (casillaSeleccionada.iluminacion != EstadoIluminacion.posibleAncla) return;
 
     if (casillaSeleccionada.valorActual == state.numeroAncla && 
         casillaSeleccionada.iluminacion == EstadoIluminacion.posibleAncla &&
@@ -87,9 +94,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     }
 
     var nuevoTablero = state.tablero.map((fila) {
-      return fila.map((casilla) {
-        return casilla.copyWith(iluminacion: EstadoIluminacion.ninguno);
-      }).toList();
+      return fila.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList();
     }).toList();
 
     nuevoTablero[event.fila][event.columna] = nuevoTablero[event.fila][event.columna].copyWith(
@@ -105,7 +110,6 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       if (nFila >= 0 && nFila < 7 && nCol >= 0 && nCol < 7) {
         if (nuevoTablero[nFila][nCol].valorActual == null) {
           bool movimientoPermitido = _validarReglaDeRegion(nFila, nCol, state.numeroColocar!);
-
           if (movimientoPermitido) {
             nuevoTablero[nFila][nCol] = nuevoTablero[nFila][nCol].copyWith(
               iluminacion: EstadoIluminacion.posibleColocacion,
@@ -166,33 +170,33 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
 
     var nuevoTablero = state.tablero.map((row) => row.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList()).toList();
     
-    // 1. Aplicamos permanentemente el número en el tablero oficial
     nuevoTablero[f][c] = nuevoTablero[f][c].copyWith(
       valorActual: state.numeroColocar,
     );
 
-    // 2. VERIFICACIÓN Y CÁLCULO DE PUNTUACIÓN DE ZONAS COMPLETADAS
     int puntosNuevos = 0;
-    var nuevasRegionesCompletadas = Set<RegionTablero>.from(state.regionesCompletadas);
+    var nuevasRegionesCompletadas = Set<dynamic>.from(state.regionesCompletadas);
     var nuevoContadorTipos = Map<String, int>.from(state.contadorCompletadasPorTipo);
+    final nuevoHistorial = List<String>.from(state.historial);
 
-    // Obtenemos todas las regiones existentes en el tablero
+    nuevoHistorial.insert(0, '✅ Colocado [${state.numeroColocar}] en F:$f, C:$c');
+
     for (var region in RegionTablero.values) {
-      if (nuevasRegionesCompletadas.contains(region)) continue; // Si ya estaba completa, la ignoramos
+      if (nuevasRegionesCompletadas.contains(region)) continue;
 
       if (_esRegionCompleta(nuevoTablero, region)) {
         nuevasRegionesCompletadas.add(region);
         
-        // Obtenemos el tipo (región de color) para consultar sus puntos
         final tipo = TiposDeRegion.obtenerTipo(region);
-        final tipoKey = tipo.runtimeType.toString(); // Identificador del tipo (ej. "TipoAzul")
+        final tipoKey = tipo.runtimeType.toString();
 
-        // Incrementamos la posición de finalización para este tipo de zona (1°, 2°, 3°...)
         int posicionActual = (nuevoContadorTipos[tipoKey] ?? 0) + 1;
         nuevoContadorTipos[tipoKey] = posicionActual;
 
-        // Otorgamos los puntos según la regla del tipo
-        puntosNuevos += tipo.puntosPorPosicion(posicionActual);
+        int puntosZona = tipo.puntosPorPosicion(posicionActual);
+        puntosNuevos += puntosZona;
+
+        nuevoHistorial.insert(0, '⭐ ¡Zona completada! ($puntosZona pts ganados)');
       }
     }
 
@@ -206,6 +210,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       puntuacionTotal: state.puntuacionTotal + puntosNuevos,
       regionesCompletadas: nuevasRegionesCompletadas,
       contadorCompletadasPorTipo: nuevoContadorTipos,
+      historial: nuevoHistorial,
     ));
   }
 
@@ -245,16 +250,30 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     ));
   }
 
-  /// Método auxiliar para verificar si todas las celdas de una región específica están llenas
+  void _onSaltarTurno(SaltarTurno event, Emitter<JuegoState> emit) {
+    final nuevoHistorial = List<String>.from(state.historial);
+    nuevoHistorial.insert(0, '⏭️ Turno saltado.');
+
+    var nuevoTablero = state.tablero.map((row) => row.map((casilla) => casilla.copyWith(iluminacion: EstadoIluminacion.ninguno)).toList()).toList();
+
+    emit(state.copyWith(
+      tablero: nuevoTablero,
+      fase: FaseTurno.turnoTerminado,
+      filaProvisional: null,
+      columnaProvisional: null,
+      filaAncla: null,
+      columnaAncla: null,
+      historial: nuevoHistorial,
+    ));
+  }
+
   bool _esRegionCompleta(List<List<Casilla>> tablero, RegionTablero regionBuscada) {
     bool alMenosUnaCelda = false;
     for (var f = 0; f < TopologiaTablero.filas; f++) {
       for (var c = 0; c < TopologiaTablero.columnas; c++) {
         if (TopologiaTablero.regionDeCelda(f, c) == regionBuscada) {
           alMenosUnaCelda = true;
-          if (tablero[f][c].valorActual == null) {
-            return false; // Hay al menos una celda vacía en esta región
-          }
+          if (tablero[f][c].valorActual == null) return false;
         }
       }
     }
@@ -266,7 +285,6 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     if (regionDestino == null) return false;
 
     final tipoRegion = TiposDeRegion.obtenerTipo(regionDestino);
-
     List<int> numerosActualesEnRegion = [];
     
     for (var f = 0; f < TopologiaTablero.filas; f++) {
@@ -274,13 +292,10 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
         final regActual = TopologiaTablero.regionDeCelda(f, c);
         if (regActual == regionDestino) {
           final valorCelda = state.tablero[f][c].valorActual;
-          if (valorCelda != null) {
-            numerosActualesEnRegion.add(valorCelda);
-          }
+          if (valorCelda != null) numerosActualesEnRegion.add(valorCelda);
         }
       }
     }
-
     return tipoRegion.esPosibleAgregar(numerosActualesEnRegion, numeroColocar);
   }
 }

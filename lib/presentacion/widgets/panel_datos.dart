@@ -37,7 +37,7 @@ class PanelDados extends StatelessWidget {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -68,8 +68,16 @@ class PanelDados extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // Opción de Saltar Turno durante la fase activa
+            if (permitirCambioDado)
+              TextButton.icon(
+                onPressed: () => context.read<JuegoBloc>().add(SaltarTurno()),
+                icon: const Icon(Icons.skip_next, size: 18),
+                label: const Text('Saltar Turno'),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey.shade400),
+              ),
             if (state.fase == FaseTurno.confirmandoJugada) ...[
-              const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -86,7 +94,6 @@ class PanelDados extends StatelessWidget {
               ),
             ],
             if (state.fase == FaseTurno.turnoTerminado) ...[
-              const SizedBox(height: 20),
               FilledButton(
                 onPressed: () => context.read<JuegoBloc>().add(IniciarTurno(const {})),
                 child: const Text('Siguiente Turno'),

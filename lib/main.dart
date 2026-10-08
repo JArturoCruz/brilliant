@@ -1,5 +1,6 @@
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/presentacion/widgets/historial_partida_widget.dart'; // NUEVO: Importa el widget de historial
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,7 +23,6 @@ class BrilliantApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Proveemos ambos Blocs de forma global para que la pantalla y los widgets compartan estado
     return MultiBlocProvider(
       providers: [
         BlocProvider<JuegoBloc>(create: (context) => JuegoBloc()),
@@ -118,37 +118,79 @@ class _PantallaConfiguracionInicialState
             ],
           ),
           body: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const InstruccionZonaInicial(),
-                      const SizedBox(height: 16),
-                      const TableroWidget(),
-                      const SizedBox(height: 20),
-                      
-                      // Intercambia dinámicamente entre la configuración inicial y el panel de dados del juego
-                      BlocBuilder<JuegoBloc, JuegoState>(
-                        builder: (context, juegoState) {
-                          if (juegoState.fase == FaseTurno.inicio) {
-                            return Column(
-                              children: [
-                                const SelectorNumerosZonaInicial(),
-                                const SizedBox(height: 20),
-                                BotonInicio(tablero: tablero),
-                              ],
-                            );
-                          }
-                          return const PanelDados();
-                        },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 🟢 LADO IZQUIERDO / CENTRO: El Tablero 7x7 y sus instrucciones iniciales
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 500),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const InstruccionZonaInicial(),
+                              const SizedBox(height: 16),
+                              const TableroWidget(),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 24),
+
+                  // 📌 LADO LATERAL DERECHO: Registro/Historial y Panel de Controles/Dados
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade800),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Registro de Partida',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Historial de eventos (mediador) con altura flexible en el panel derecho
+                          const Expanded(
+                            child: HistorialPartidaWidget(),
+                          ),
+                          const SizedBox(height: 16),
+                          const Divider(color: Colors.grey),
+                          const SizedBox(height: 16),
+
+                          // Controles inferiores (Selector de números iniciales o Panel de Dados del juego)
+                          BlocBuilder<JuegoBloc, JuegoState>(
+                            builder: (context, juegoState) {
+                              if (juegoState.fase == FaseTurno.inicio) {
+                                return Column(
+                                  children: [
+                                    const SelectorNumerosZonaInicial(),
+                                    const SizedBox(height: 20),
+                                    BotonInicio(tablero: tablero),
+                                  ],
+                                );
+                              }
+                              return const PanelDados();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
