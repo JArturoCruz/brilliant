@@ -26,7 +26,7 @@ class JuegoState {
   
   final int puntuacionTotal;
   final Set<dynamic> regionesCompletadas;
-  final Map<String, int> contadorCompletadasPorTipo;
+  final Map<String, int> contadorCompletadasPorRegion;
   
   final List<String> historial; // NUEVO: Registro de eventos de la partida
 
@@ -44,7 +44,7 @@ class JuegoState {
     this.columnaAncla,
     this.puntuacionTotal = 0,
     this.regionesCompletadas = const {},
-    this.contadorCompletadasPorTipo = const {},
+    this.contadorCompletadasPorRegion = const {},
     this.historial = const [],
   });
 
@@ -62,7 +62,7 @@ class JuegoState {
     Object? columnaAncla = _sentinel,
     Object? puntuacionTotal = _sentinel,
     Object? regionesCompletadas = _sentinel,
-    Object? contadorCompletadasPorTipo = _sentinel,
+    Object? contadorCompletadasPorRegion = _sentinel,
     Object? historial = _sentinel,
   }) {
     return JuegoState(
@@ -79,7 +79,7 @@ class JuegoState {
       columnaAncla: columnaAncla == _sentinel ? this.columnaAncla : columnaAncla as int?,
       puntuacionTotal: puntuacionTotal == _sentinel ? this.puntuacionTotal : puntuacionTotal as int,
       regionesCompletadas: regionesCompletadas == _sentinel ? this.regionesCompletadas : regionesCompletadas as Set<dynamic>,
-      contadorCompletadasPorTipo: contadorCompletadasPorTipo == _sentinel ? this.contadorCompletadasPorTipo : contadorCompletadasPorTipo as Map<String, int>,
+      contadorCompletadasPorRegion: contadorCompletadasPorRegion == _sentinel ? this.contadorCompletadasPorRegion : contadorCompletadasPorRegion as Map<String, int>,
       historial: historial == _sentinel ? this.historial : historial as List<String>,
     );
   }
