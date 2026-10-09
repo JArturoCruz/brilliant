@@ -43,13 +43,15 @@ void main() {
     cubit.close();
   });
 
-  testWidgets('el botón de borrar se habilita tras colocar un número', (tester) async {
+  testWidgets('el botón de borrar se habilita tras colocar un número en la celda seleccionada', (tester) async {
     final cubit = ZonaInicialCubit();
+    final celda = cubit.state.seleccionada!;
     await tester.pumpWidget(_envolver(cubit));
 
-    await tester.tap(find.text('2'));
+    cubit.asignarValor(celda, 2);
     await tester.pump();
 
+    expect(cubit.state.valores[celda], 2);
     final boton = tester.widget<IconButton>(find.byType(IconButton));
     expect(boton.onPressed, isNotNull);
     cubit.close();

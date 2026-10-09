@@ -1,3 +1,4 @@
+import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/dominio/topologia_tablero.dart';
 import 'package:brilliant/dominio/zona_inicial.dart';
@@ -10,9 +11,13 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('dibuja una celda por cada posición del tablero (7x7 = 49)', (tester) async {
     final cubit = ZonaInicialCubit();
+    final bloque = JuegoBloc();
     await tester.pumpWidget(MaterialApp(
-      home: BlocProvider.value(
-        value: cubit,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<JuegoBloc>.value(value: bloque),
+          BlocProvider<ZonaInicialCubit>.value(value: cubit),
+        ],
         child: const Scaffold(body: TableroWidget()),
       ),
     ));
@@ -20,28 +25,38 @@ void main() {
     expect(find.byType(CeldaTableroWidget),
         findsNWidgets(TopologiaTablero.filas * TopologiaTablero.columnas));
     cubit.close();
+    bloque.close();
   });
 
   testWidgets('muestra 6 signos de interrogación antes de llenar la ZonaInicial', (tester) async {
     final cubit = ZonaInicialCubit();
+    final bloque = JuegoBloc();
     await tester.pumpWidget(MaterialApp(
-      home: BlocProvider.value(
-        value: cubit,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<JuegoBloc>.value(value: bloque),
+          BlocProvider<ZonaInicialCubit>.value(value: cubit),
+        ],
         child: const Scaffold(body: TableroWidget()),
       ),
     ));
 
     expect(find.text('?'), findsNWidgets(ZonaInicial.cantidadCeldas));
     cubit.close();
+    bloque.close();
   });
 
   testWidgets('tocar una celda de la ZonaInicial dentro del tablero la selecciona', (tester) async {
     final cubit = ZonaInicialCubit();
+    final bloque = JuegoBloc();
     final pos = ZonaInicial.posiciones[1];
 
     await tester.pumpWidget(MaterialApp(
-      home: BlocProvider.value(
-        value: cubit,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<JuegoBloc>.value(value: bloque),
+          BlocProvider<ZonaInicialCubit>.value(value: cubit),
+        ],
         child: const Scaffold(body: TableroWidget()),
       ),
     ));
@@ -53,5 +68,6 @@ void main() {
 
     expect(cubit.state.seleccionada, pos);
     cubit.close();
+    bloque.close();
   });
 }

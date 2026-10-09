@@ -97,13 +97,18 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     emit(state.copyWith(mensaje: mensaje, mensajeId: state.mensajeId + 1));
   }
 
-  /// Vuelca los valores de la ZonaInicial hacia el tablero real y marca la
-  /// configuración como iniciada. No hace nada si todavía no son válidos.
+  /// Vuelca los valores de la ZonaInicial hacia el tablero real.
+  ///
+  /// Aunque la configuración aún no sea válida, se pueden seguir copiando
+  /// temporalmente los valores para que los widgets puedan renderizarlos. Solo
+  /// se marca como iniciada cuando la zona ya cumple la validación.
   void aplicarATablero(TableroJuego tablero) {
-    if (!state.esValida || state.iniciada) return;
+    if (state.iniciada) return;
     for (final entrada in state.valores.entries) {
       tablero.asignarValor(entrada.key.fila, entrada.key.columna, entrada.value);
     }
-    emit(state.copyWith(iniciada: true, limpiarSeleccion: true));
+    if (state.esValida) {
+      emit(state.copyWith(iniciada: true, limpiarSeleccion: true));
+    }
   }
 }

@@ -27,8 +27,11 @@ class _PantallaConfiguracionInicialState
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ZonaInicialCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<JuegoBloc>(create: (_) => JuegoBloc()),
+        BlocProvider<ZonaInicialCubit>(create: (_) => ZonaInicialCubit()),
+      ],
       child: AtajosTecladoZonaInicial(
         child: MensajesZonaInicialListener(
           child: Scaffold(
@@ -46,11 +49,8 @@ class _PantallaConfiguracionInicialState
                         const SizedBox(height: 16),
                         const TableroWidget(),
                         const SizedBox(height: 20),
-                        
-                        // Envolvemos la parte inferior en un BlocBuilder de JuegoBloc
                         BlocBuilder<JuegoBloc, JuegoState>(
                           builder: (context, juegoState) {
-                            // Si el juego no ha iniciado, mostramos el botón y el selector original
                             if (juegoState.fase == FaseTurno.inicio) {
                               return Column(
                                 children: [
@@ -60,8 +60,6 @@ class _PantallaConfiguracionInicialState
                                 ],
                               );
                             }
-                            
-                            // Si el juego ya inició, ocultamos el botón y mostramos el panel de dados
                             return const PanelDados();
                           },
                         ),

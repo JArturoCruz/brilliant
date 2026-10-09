@@ -2,14 +2,9 @@ import 'package:brilliant/presentacion/teclado/clasificador_tecla.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-KeyDownEvent _down(String caracter) => KeyDownEvent(
-      physicalKey: PhysicalKeyboardKey.keyA,
-      logicalKey: LogicalKeyboardKey.keyA,
-      character: caracter,
-      timeStamp: Duration.zero,
-    );
-
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   const clasificador = ClasificadorTecla();
   final teclado = HardwareKeyboard.instance;
 
@@ -68,3 +63,10 @@ void main() {
     });
   });
 }
+
+KeyDownEvent _down(String caracter) => KeyDownEvent(
+      physicalKey: PhysicalKeyboardKey.keyA,
+      logicalKey: LogicalKeyboardKey.keyA,
+      character: caracter,
+      timeStamp: Duration.zero,
+    );

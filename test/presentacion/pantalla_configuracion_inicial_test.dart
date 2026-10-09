@@ -6,6 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final binding = TestWidgetsFlutterBinding.instance;
+    binding.window.physicalSizeTestValue = const Size(1200, 1600);
+    binding.window.devicePixelRatioTestValue = 1.0;
+  });
+
+  tearDown(() {
+    final binding = TestWidgetsFlutterBinding.instance;
+    binding.window.clearPhysicalSizeTestValue();
+    binding.window.clearDevicePixelRatioTestValue();
+  });
+
   testWidgets('arma la pantalla con título, tablero, selector y botón', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
 
@@ -18,43 +31,48 @@ void main() {
   testWidgets('el botón Inicio empieza deshabilitado', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
 
-    final boton = tester.widget<FilledButton>(find.byType(FilledButton));
+    final inicio = find.widgetWithText(FilledButton, 'Inicio');
+    final boton = tester.widget<FilledButton>(inicio);
     expect(boton.onPressed, isNull);
   });
 
   testWidgets(
-    'flujo completo: llenar los 6 números distintos habilita Inicio y tocarlo lo deshabilita de nuevo',
+    'flujo completo: llenar los 6 números distintos habilita Inicio y tocarlo activa la configuración',
     (tester) async {
       await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
 
-      // Coloca 1..6 tocando los botones del selector; cada toque avanza
-      // automáticamente a la siguiente celda vacía de la ZonaInicial.
       for (var n = 1; n <= 6; n++) {
-        await tester.tap(find.text('$n'));
+        final finder = find.widgetWithText(OutlinedButton, '$n');
+        await tester.ensureVisible(finder);
+        await tester.tap(finder);
         await tester.pump();
       }
 
       expect(find.textContaining('¡Configuración lista!'), findsNothing);
-      var boton = tester.widget<FilledButton>(find.byType(FilledButton));
+      final inicio = find.widgetWithText(FilledButton, 'Inicio');
+      final boton = tester.widget<FilledButton>(inicio);
       expect(boton.onPressed, isNotNull);
 
-      await tester.tap(find.byType(FilledButton));
+      await tester.tap(inicio);
       await tester.pump();
 
       expect(find.text('¡Configuración lista!'), findsOneWidget);
-      boton = tester.widget<FilledButton>(find.byType(FilledButton));
-      expect(boton.onPressed, isNull);
+      expect(find.widgetWithText(FilledButton, 'Inicio'), findsNothing);
     },
   );
 
   testWidgets('tocar un número repetido muestra el aviso de número repetido', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
 
-    await tester.tap(find.text('1')); // celda 1 = 1, avanza a la celda 2
+    final primerNumero = find.widgetWithText(OutlinedButton, '1');
+    await tester.ensureVisible(primerNumero);
+    await tester.tap(primerNumero);
     await tester.pump();
-    await tester.tap(find.text('1')); // celda 2: 1 ya está en la celda 1
+
+    await tester.ensureVisible(primerNumero);
+    await tester.tap(primerNumero);
     await tester.pump();
-    await tester.pump(); // anima el SnackBar
+    await tester.pump();
 
     expect(find.textContaining('ya está en la casilla'), findsOneWidget);
   });

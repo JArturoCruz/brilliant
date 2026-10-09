@@ -1,3 +1,4 @@
+import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/dominio/tablero.dart';
 import 'package:brilliant/presentacion/widgets/boton_inicio.dart';
@@ -6,9 +7,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _envolver(ZonaInicialCubit cubit, TableroJuego tablero) {
+  final juegoBloc = JuegoBloc();
   return MaterialApp(
-    home: BlocProvider.value(
-      value: cubit,
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<JuegoBloc>.value(value: juegoBloc),
+        BlocProvider<ZonaInicialCubit>.value(value: cubit),
+      ],
       child: Scaffold(body: BotonInicio(tablero: tablero)),
     ),
   );
