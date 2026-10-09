@@ -19,8 +19,12 @@ void main() {
     binding.window.clearDevicePixelRatioTestValue();
   });
 
-  testWidgets('arma la pantalla con título, tablero, selector y botón', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
+  testWidgets('arma la pantalla con título, tablero, selector y botón', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: PantallaConfiguracionInicial()),
+    );
 
     expect(find.text('Brilliant'), findsOneWidget);
     expect(find.byType(TableroWidget), findsOneWidget);
@@ -29,7 +33,9 @@ void main() {
   });
 
   testWidgets('el botón Inicio empieza deshabilitado', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
+    await tester.pumpWidget(
+      const MaterialApp(home: PantallaConfiguracionInicial()),
+    );
 
     final inicio = find.widgetWithText(FilledButton, 'Inicio');
     final boton = tester.widget<FilledButton>(inicio);
@@ -39,7 +45,9 @@ void main() {
   testWidgets(
     'flujo completo: llenar los 6 números distintos habilita Inicio y tocarlo activa la configuración',
     (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
+      await tester.pumpWidget(
+        const MaterialApp(home: PantallaConfiguracionInicial()),
+      );
 
       for (var n = 1; n <= 6; n++) {
         final finder = find.widgetWithText(OutlinedButton, '$n');
@@ -54,15 +62,19 @@ void main() {
       expect(boton.onPressed, isNotNull);
 
       await tester.tap(inicio);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.text('¡Configuración lista!'), findsOneWidget);
+      expect(find.text('¡Configuración lista!'), findsNothing);
       expect(find.widgetWithText(FilledButton, 'Inicio'), findsNothing);
     },
   );
 
-  testWidgets('tocar un número repetido muestra el aviso de número repetido', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaConfiguracionInicial()));
+  testWidgets('tocar un número repetido muestra el aviso de número repetido', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: PantallaConfiguracionInicial()),
+    );
 
     final primerNumero = find.widgetWithText(OutlinedButton, '1');
     await tester.ensureVisible(primerNumero);
