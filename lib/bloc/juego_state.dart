@@ -30,6 +30,9 @@ class JuegoState {
   
   final List<String> historial; // NUEVO: Registro de eventos de la partida
 
+  bool get tableroCompleto =>
+      tablero.expand((fila) => fila).every((casilla) => casilla.valorActual != null);
+
   JuegoState({
     required this.tablero,
     this.fase = FaseTurno.inicio,

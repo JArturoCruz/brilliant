@@ -45,6 +45,20 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
           );
     });
 
+    if (nuevoTablero
+        .expand((fila) => fila)
+        .every((casilla) => casilla.valorActual != null)) {
+      emit(
+        state.copyWith(
+          tablero: nuevoTablero,
+          dado1: null,
+          dado2: null,
+          fase: FaseTurno.turnoTerminado,
+        ),
+      );
+      return;
+    }
+
     final dado1 = Dado.tirar();
     final dado2 = Dado.tirar();
 

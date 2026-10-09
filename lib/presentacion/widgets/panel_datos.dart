@@ -11,6 +11,14 @@ class PanelDados extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, state) {
+        if (state.tableroCompleto) {
+          return const Text(
+            '¡Tablero completo! La partida ha terminado.',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          );
+        }
+
         if (state.dado1 == null || state.dado2 == null) return const SizedBox.shrink();
 
         String mensaje = '';

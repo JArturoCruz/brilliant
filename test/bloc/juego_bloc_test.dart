@@ -51,6 +51,24 @@ void main() {
       },
     );
 
+    test('no tira los dados cuando el tablero ya está completo', () async {
+      final valoresIniciales = {
+        for (var fila = 0; fila < 7; fila++)
+          for (var columna = 0; columna < 7; columna++)
+            Posicion(fila, columna): 1,
+      };
+
+      bloc.add(IniciarTurno(valoresIniciales));
+      await bloc.stream.firstWhere(
+        (state) => state.fase == FaseTurno.turnoTerminado,
+      );
+
+      expect(bloc.state.tableroCompleto, isTrue);
+      expect(bloc.state.dado1, isNull);
+      expect(bloc.state.dado2, isNull);
+      expect(bloc.state.historial, isEmpty);
+    });
+
     test(
       'seleccionar un número y una casilla activa la fase de colocación',
       () async {
