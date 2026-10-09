@@ -10,6 +10,8 @@ enum FaseTurno {
 }
 
 class JuegoState {
+  static const Object _sentinel = Object();
+
   final List<List<Casilla>> tablero; 
   final FaseTurno fase;
   final int? dado1;
@@ -47,38 +49,38 @@ class JuegoState {
   });
 
   JuegoState copyWith({
-    List<List<Casilla>>? tablero,
-    FaseTurno? fase,
-    int? dado1,
-    int? dado2,
-    int? numeroAncla,
-    int? numeroColocar,
-    int? indiceDadoAncla,
-    int? filaProvisional,
-    int? columnaProvisional,
-    int? filaAncla,
-    int? columnaAncla,
-    int? puntuacionTotal,
-    Set<dynamic>? regionesCompletadas,
-    Map<String, int>? contadorCompletadasPorTipo,
-    List<String>? historial,
+    Object? tablero = _sentinel,
+    Object? fase = _sentinel,
+    Object? dado1 = _sentinel,
+    Object? dado2 = _sentinel,
+    Object? numeroAncla = _sentinel,
+    Object? numeroColocar = _sentinel,
+    Object? indiceDadoAncla = _sentinel,
+    Object? filaProvisional = _sentinel,
+    Object? columnaProvisional = _sentinel,
+    Object? filaAncla = _sentinel,
+    Object? columnaAncla = _sentinel,
+    Object? puntuacionTotal = _sentinel,
+    Object? regionesCompletadas = _sentinel,
+    Object? contadorCompletadasPorTipo = _sentinel,
+    Object? historial = _sentinel,
   }) {
     return JuegoState(
-      tablero: tablero ?? this.tablero,
-      fase: fase ?? this.fase,
-      dado1: dado1 ?? this.dado1,
-      dado2: dado2 ?? this.dado2,
-      numeroAncla: numeroAncla ?? this.numeroAncla,
-      numeroColocar: numeroColocar ?? this.numeroColocar,
-      indiceDadoAncla: indiceDadoAncla ?? this.indiceDadoAncla,
-      filaProvisional: filaProvisional ?? this.filaProvisional,
-      columnaProvisional: columnaProvisional ?? this.columnaProvisional,
-      filaAncla: filaAncla ?? this.filaAncla,
-      columnaAncla: columnaAncla ?? this.columnaAncla,
-      puntuacionTotal: puntuacionTotal ?? this.puntuacionTotal,
-      regionesCompletadas: regionesCompletadas ?? this.regionesCompletadas,
-      contadorCompletadasPorTipo: contadorCompletadasPorTipo ?? this.contadorCompletadasPorTipo,
-      historial: historial ?? this.historial,
+      tablero: tablero == _sentinel ? this.tablero : tablero as List<List<Casilla>>,
+      fase: fase == _sentinel ? this.fase : fase as FaseTurno,
+      dado1: dado1 == _sentinel ? this.dado1 : dado1 as int?,
+      dado2: dado2 == _sentinel ? this.dado2 : dado2 as int?,
+      numeroAncla: numeroAncla == _sentinel ? this.numeroAncla : numeroAncla as int?,
+      numeroColocar: numeroColocar == _sentinel ? this.numeroColocar : numeroColocar as int?,
+      indiceDadoAncla: indiceDadoAncla == _sentinel ? this.indiceDadoAncla : indiceDadoAncla as int?,
+      filaProvisional: filaProvisional == _sentinel ? this.filaProvisional : filaProvisional as int?,
+      columnaProvisional: columnaProvisional == _sentinel ? this.columnaProvisional : columnaProvisional as int?,
+      filaAncla: filaAncla == _sentinel ? this.filaAncla : filaAncla as int?,
+      columnaAncla: columnaAncla == _sentinel ? this.columnaAncla : columnaAncla as int?,
+      puntuacionTotal: puntuacionTotal == _sentinel ? this.puntuacionTotal : puntuacionTotal as int,
+      regionesCompletadas: regionesCompletadas == _sentinel ? this.regionesCompletadas : regionesCompletadas as Set<dynamic>,
+      contadorCompletadasPorTipo: contadorCompletadasPorTipo == _sentinel ? this.contadorCompletadasPorTipo : contadorCompletadasPorTipo as Map<String, int>,
+      historial: historial == _sentinel ? this.historial : historial as List<String>,
     );
   }
 }

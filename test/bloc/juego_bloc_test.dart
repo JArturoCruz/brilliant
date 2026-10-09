@@ -33,10 +33,11 @@ void main() {
       );
     });
 
-    test('iniciar turno inicializa el tablero y prepara la selección de ancla', () {
+    test('iniciar turno inicializa el tablero y prepara la selección de ancla', () async {
       const posicionInicial = Posicion(0, 0);
 
       bloc.add(IniciarTurno({posicionInicial: 4}));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoAncla);
 
       expect(bloc.state.fase, FaseTurno.seleccionandoAncla);
       expect(bloc.state.dado1, isNotNull);
@@ -45,8 +46,10 @@ void main() {
       expect(bloc.state.historial.first, contains('Dados tirados'));
     });
 
-    test('seleccionar un número y una casilla activa la fase de colocación', () {
+    test('seleccionar un número y una casilla activa la fase de colocación', () async {
       bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoAncla);
+
       bloc.add(
         SeleccionarNumeroAncla(
           numeroElegido: 3,
@@ -54,6 +57,7 @@ void main() {
           indiceDado: 1,
         ),
       );
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoCasilla);
 
       expect(bloc.state.numeroAncla, 3);
       expect(bloc.state.numeroColocar, 5);
@@ -62,14 +66,17 @@ void main() {
       expect(bloc.state.tablero[0][0].iluminacion, EstadoIluminacion.posibleAncla);
 
       bloc.add(SeleccionarCasillaAncla(0, 0));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.colocandoNumero);
 
       expect(bloc.state.fase, FaseTurno.colocandoNumero);
       expect(bloc.state.filaAncla, 0);
       expect(bloc.state.columnaAncla, 0);
     });
 
-    test('colocar y confirmar una jugada actualiza el tablero y termina el turno', () {
+    test('colocar y confirmar una jugada actualiza el tablero y termina el turno', () async {
       bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoAncla);
+
       bloc.add(
         SeleccionarNumeroAncla(
           numeroElegido: 3,
@@ -77,13 +84,17 @@ void main() {
           indiceDado: 0,
         ),
       );
-      bloc.add(SeleccionarCasillaAncla(0, 0));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoCasilla);
 
+      bloc.add(SeleccionarCasillaAncla(0, 0));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.colocandoNumero);
+
+      final stateConAncla = bloc.state;
       int? filaDestino;
       int? columnaDestino;
       for (var fila = 0; fila < 7; fila++) {
         for (var columna = 0; columna < 7; columna++) {
-          if (bloc.state.tablero[fila][columna].iluminacion ==
+          if (stateConAncla.tablero[fila][columna].iluminacion ==
               EstadoIluminacion.posibleColocacion) {
             filaDestino = fila;
             columnaDestino = columna;
@@ -97,19 +108,24 @@ void main() {
       expect(columnaDestino, isNotNull);
 
       bloc.add(ColocarNumero(filaDestino!, columnaDestino!));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.confirmandoJugada);
+
       expect(bloc.state.fase, FaseTurno.confirmandoJugada);
       expect(bloc.state.filaProvisional, filaDestino);
       expect(bloc.state.columnaProvisional, columnaDestino);
 
       bloc.add(ConfirmarJugada());
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.turnoTerminado);
 
       expect(bloc.state.fase, FaseTurno.turnoTerminado);
       expect(bloc.state.tablero[filaDestino!][columnaDestino!].valorActual, 5);
       expect(bloc.state.historial.first, contains('Colocado'));
     });
 
-    test('cancelar la confirmación devuelve la jugada a la fase de colocación', () {
+    test('cancelar la confirmación devuelve la jugada a la fase de colocación', () async {
       bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoAncla);
+
       bloc.add(
         SeleccionarNumeroAncla(
           numeroElegido: 3,
@@ -117,13 +133,17 @@ void main() {
           indiceDado: 2,
         ),
       );
-      bloc.add(SeleccionarCasillaAncla(0, 0));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoCasilla);
 
+      bloc.add(SeleccionarCasillaAncla(0, 0));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.colocandoNumero);
+
+      final stateConAncla = bloc.state;
       int? filaDestino;
       int? columnaDestino;
       for (var fila = 0; fila < 7; fila++) {
         for (var columna = 0; columna < 7; columna++) {
-          if (bloc.state.tablero[fila][columna].iluminacion ==
+          if (stateConAncla.tablero[fila][columna].iluminacion ==
               EstadoIluminacion.posibleColocacion) {
             filaDestino = fila;
             columnaDestino = columna;
@@ -137,17 +157,22 @@ void main() {
       expect(columnaDestino, isNotNull);
 
       bloc.add(ColocarNumero(filaDestino!, columnaDestino!));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.confirmandoJugada);
+
       bloc.add(CancelarConfirmacion());
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.colocandoNumero);
 
       expect(bloc.state.fase, FaseTurno.colocandoNumero);
       expect(bloc.state.filaProvisional, isNull);
       expect(bloc.state.columnaProvisional, isNull);
     });
 
-    test('saltar turno registra el evento y termina la fase actual', () {
+    test('saltar turno registra el evento y termina la fase actual', () async {
       bloc.add(IniciarTurno({const Posicion(0, 0): 2}));
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.seleccionandoAncla);
 
       bloc.add(SaltarTurno());
+      await bloc.stream.firstWhere((state) => state.fase == FaseTurno.turnoTerminado);
 
       expect(bloc.state.fase, FaseTurno.turnoTerminado);
       expect(bloc.state.historial.first, contains('Turno saltado'));
