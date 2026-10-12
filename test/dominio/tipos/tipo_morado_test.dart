@@ -16,6 +16,14 @@ void main() {
       expect(tipo.esPosibleAgregar([1, 2], 2), isTrue);
     });
 
+    test('permite completar con cinco iguales y uno diferente', () {
+      expect(tipo.esPosibleAgregar([1, 1, 1, 1, 1], 2), isTrue);
+    });
+
+    test('rechaza completar las seis casillas con un solo número', () {
+      expect(tipo.esPosibleAgregar([1, 1, 1, 1, 1], 1), isFalse);
+    });
+
     test('rechaza un tercer número distinto', () {
       expect(tipo.esPosibleAgregar([1, 2], 3), isFalse);
     });

@@ -2,7 +2,8 @@ import 'dart:ui';
 
 import 'tipo.dart';
 
-/// Región morada: admite como máximo dos números distintos por zona.
+/// Región morada: admite uno o dos números distintos, y al completarse
+/// debe contener al menos dos valores diferentes.
 class TipoMorado extends Tipo {
   const TipoMorado();
 
@@ -15,7 +16,11 @@ class TipoMorado extends Tipo {
   @override
   bool esPosibleAgregar(List<int> actuales, int posible) {
     final distintos = actuales.toSet()..add(posible);
-    return distintos.length <= 2;
+    if (distintos.length > 2) return false;
+
+    // Las regiones moradas tienen seis casillas: no se puede ocupar la
+    // última con el mismo valor de las cinco anteriores.
+    return actuales.length != 5 || distintos.length > 1;
   }
 
   @override
