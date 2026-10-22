@@ -203,4 +203,130 @@ void main() {
       );
     });
   });
+
+  group('MapaTablero.mapa3', () {
+    test('coincide con la matriz y cubre las 49 casillas una sola vez', () {
+      const esperado = [
+        [
+          RegionTablero.amarilla,
+          RegionTablero.amarilla,
+          RegionTablero.morada1,
+          RegionTablero.blanca,
+          RegionTablero.morada1,
+          RegionTablero.amarilla,
+          RegionTablero.amarilla,
+        ],
+        [
+          RegionTablero.blanca,
+          RegionTablero.amarilla,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.amarilla,
+          RegionTablero.blanca,
+        ],
+        [
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.morada1,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+        ],
+        [
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.blanca,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+        ],
+        [
+          RegionTablero.verde1,
+          RegionTablero.azul1,
+          RegionTablero.azul1,
+          RegionTablero.azul1,
+          RegionTablero.azul1,
+          RegionTablero.azul1,
+          RegionTablero.verde1,
+        ],
+        [
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+          RegionTablero.verde1,
+        ],
+        [
+          RegionTablero.morada2,
+          RegionTablero.morada2,
+          RegionTablero.morada2,
+          RegionTablero.blanca,
+          RegionTablero.morada2,
+          RegionTablero.morada2,
+          RegionTablero.morada2,
+        ],
+      ];
+      final posiciones = <Posicion>[];
+
+      for (var fila = 0; fila < esperado.length; fila++) {
+        for (var columna = 0; columna < esperado[fila].length; columna++) {
+          expect(
+            TopologiaTablero.regionDeCelda(
+              fila,
+              columna,
+              mapa: MapaTablero.mapa3,
+            ),
+            esperado[fila][columna],
+            reason: 'Casilla ($fila, $columna)',
+          );
+          posiciones.add(Posicion(fila, columna));
+        }
+      }
+
+      final regiones = MapaTablero.mapa3.coordenadasPorRegion.values
+          .expand((region) => region)
+          .toList();
+      expect(regiones, hasLength(49));
+      expect(regiones.toSet(), hasLength(49));
+      expect(posiciones.toSet(), hasLength(49));
+    });
+
+    test('las casillas blancas del mapa 3 deben llevar el mismo número', () {
+      final tablero = TableroJuego();
+      const validador = ValidadorDeJugadas(mapa: MapaTablero.mapa3);
+      final blancas = TopologiaTablero.posicionesDe(
+        RegionTablero.blanca,
+        mapa: MapaTablero.mapa3,
+      );
+
+      expect(blancas, hasLength(5));
+      for (final posicion in blancas.take(blancas.length - 1)) {
+        tablero.asignarValor(posicion.fila, posicion.columna, 2);
+      }
+
+      expect(
+        validador.puedeAsignar(
+          tablero,
+          blancas.last.fila,
+          blancas.last.columna,
+          2,
+        ),
+        isTrue,
+      );
+      expect(
+        validador.puedeAsignar(
+          tablero,
+          blancas.last.fila,
+          blancas.last.columna,
+          3,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

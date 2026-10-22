@@ -18,7 +18,10 @@ class PantallaSeleccionMapa extends StatelessWidget {
         mapa: MapaTablero.mapa2,
         descripcion: 'Disponible',
       ),
-      _MapaDisponible(nombre: 'Mapa 3', descripcion: 'Próximamente'),
+      _MapaDisponible.disponible(
+        mapa: MapaTablero.mapa3,
+        descripcion: 'Disponible',
+      ),
       _MapaDisponible(nombre: 'Mapa 4', descripcion: 'Próximamente'),
     ];
 

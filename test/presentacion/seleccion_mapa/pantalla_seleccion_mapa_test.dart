@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('muestra cuatro mapas y habilita los dos primeros', (
+  testWidgets('muestra cuatro mapas y habilita los tres primeros', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaSeleccionMapa()));
@@ -15,15 +15,16 @@ void main() {
     expect(find.text('Mapa 2'), findsOneWidget);
     expect(find.text('Mapa 3'), findsOneWidget);
     expect(find.text('Mapa 4'), findsOneWidget);
-    expect(find.text('Disponible'), findsNWidgets(2));
-    expect(find.text('Próximamente'), findsNWidgets(2));
+    expect(find.text('Disponible'), findsNWidgets(3));
+    expect(find.text('Próximamente'), findsOneWidget);
 
     final tarjetas = tester.widgetList<TarjetaMapa>(find.byType(TarjetaMapa));
     expect(tarjetas, hasLength(4));
-    expect(tarjetas.where((tarjeta) => tarjeta.onTap != null), hasLength(2));
+    expect(tarjetas.where((tarjeta) => tarjeta.onTap != null), hasLength(3));
     expect(tarjetas.first.onTap, isNotNull);
     expect(tarjetas.elementAt(1).onTap, isNotNull);
-    expect(tarjetas.skip(2).every((tarjeta) => tarjeta.onTap == null), isTrue);
+    expect(tarjetas.elementAt(2).onTap, isNotNull);
+    expect(tarjetas.last.onTap, isNull);
   });
 
   testWidgets('seleccionar el mapa 2 abre el tablero correspondiente', (
@@ -40,6 +41,19 @@ void main() {
     expect(find.text('Brilliant'), findsOneWidget);
     expect(find.byType(GridView), findsNothing);
     expect(find.byType(Scaffold), findsOneWidget);
+  });
+
+  testWidgets('seleccionar el mapa 3 abre el tablero correspondiente', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PantallaSeleccionMapa()));
+
+    await tester.tap(find.text('Mapa 3'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PantallaJuego), findsOneWidget);
+    expect(tester.widget<PantallaJuego>(find.byType(PantallaJuego)).mapa.id, 3);
+    expect(find.byType(TableroWidget), findsOneWidget);
   });
 
   testWidgets('usa una columna en móvil y dos columnas en escritorio', (
