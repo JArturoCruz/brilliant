@@ -31,10 +31,7 @@ class BrilliantApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Brilliant',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          useMaterial3: true,
-        ),
+        theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
         home: const PantallaConfiguracionInicial(),
       ),
     );
@@ -63,20 +60,32 @@ class _PantallaConfiguracionInicialState
             elevation: 0,
             title: const Text(
               'Brilliant',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             actions: [
               // 🌟 Puntuación dentro de la estrella integrada en el AppBar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: BlocBuilder<JuegoBloc, JuegoState>(
                   builder: (context, state) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade50.withAlpha(230),
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: Colors.amber.shade400, width: 2),
+                        border: Border.all(
+                          color: Colors.amber.shade400,
+                          width: 2,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.amber.withAlpha(80),
@@ -96,9 +105,13 @@ class _PantallaConfiguracionInicialState
                           const SizedBox(width: 6),
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (Widget child, Animation<double> animation) {
-                              return ScaleTransition(scale: animation, child: child);
-                            },
+                            transitionBuilder:
+                                (Widget child, Animation<double> animation) {
+                                  return ScaleTransition(
+                                    scale: animation,
+                                    child: child,
+                                  );
+                                },
                             child: Text(
                               '${state.puntuacionTotal}',
                               key: ValueKey<int>(state.puntuacionTotal),
@@ -118,83 +131,114 @@ class _PantallaConfiguracionInicialState
             ],
           ),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // 🟢 LADO IZQUIERDO / CENTRO: El Tablero 7x7 y sus instrucciones iniciales
-                  Expanded(
-                    flex: 3,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 800) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
                     child: Center(
-                      child: SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 500),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const InstruccionZonaInicial(),
-                              const SizedBox(height: 16),
-                              const TableroWidget(),
-                            ],
-                          ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        child: Column(
+                          children: [
+                            const InstruccionZonaInicial(),
+                            const SizedBox(height: 16),
+                            const TableroWidget(),
+                            const SizedBox(height: 24),
+                            _PanelPartida(tablero: tablero, compacto: true),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 24),
+                  );
+                }
 
-                  // 📌 LADO LATERAL DERECHO: Registro/Historial y Panel de Controles/Dados
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade800),
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Center(
+                          child: SingleChildScrollView(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 500),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const InstruccionZonaInicial(),
+                                  const SizedBox(height: 16),
+                                  const TableroWidget(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Registro de Partida',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
-                          ),
-                          const SizedBox(height: 8),
-                          
-                          // Historial de eventos (mediador) con altura flexible en el panel derecho
-                          const Expanded(
-                            child: HistorialPartidaWidget(),
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(color: Colors.grey),
-                          const SizedBox(height: 16),
-
-                          // Controles inferiores (Selector de números iniciales o Panel de Dados del juego)
-                          BlocBuilder<JuegoBloc, JuegoState>(
-                            builder: (context, juegoState) {
-                              if (juegoState.fase == FaseTurno.inicio) {
-                                return Column(
-                                  children: [
-                                    const SelectorNumerosZonaInicial(),
-                                    const SizedBox(height: 20),
-                                    BotonInicio(tablero: tablero),
-                                  ],
-                                );
-                              }
-                              return const PanelDados();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 2, child: _PanelPartida(tablero: tablero)),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PanelPartida extends StatelessWidget {
+  const _PanelPartida({required this.tablero, this.compacto = false});
+
+  final TableroJuego tablero;
+  final bool compacto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black45,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade800),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Registro de Partida',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (compacto)
+            const HistorialPartidaWidget()
+          else
+            const Expanded(child: HistorialPartidaWidget()),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 16),
+          BlocBuilder<JuegoBloc, JuegoState>(
+            builder: (context, juegoState) {
+              if (juegoState.fase == FaseTurno.inicio) {
+                return Column(
+                  children: [
+                    const SelectorNumerosZonaInicial(),
+                    const SizedBox(height: 20),
+                    BotonInicio(tablero: tablero),
+                  ],
+                );
+              }
+              return const PanelDados();
+            },
+          ),
+        ],
       ),
     );
   }

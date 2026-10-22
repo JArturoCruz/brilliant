@@ -16,10 +16,13 @@ class PanelDados extends StatelessWidget {
             '¡Tablero completo! La partida ha terminado.',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
+            
           );
         }
 
-        if (state.dado1 == null || state.dado2 == null) return const SizedBox.shrink();
+        if (state.dado1 == null || state.dado2 == null) {
+          return const SizedBox.shrink();
+        }
 
         String mensaje = '';
         if (state.fase == FaseTurno.seleccionandoAncla) {
@@ -34,9 +37,10 @@ class PanelDados extends StatelessWidget {
           mensaje = '¡Turno terminado!';
         }
 
-        bool permitirCambioDado = state.fase == FaseTurno.seleccionandoAncla || 
-                                 state.fase == FaseTurno.seleccionandoCasilla || 
-                                 state.fase == FaseTurno.colocandoNumero;
+        bool permitirCambioDado =
+            state.fase == FaseTurno.seleccionandoAncla ||
+            state.fase == FaseTurno.seleccionandoCasilla ||
+            state.fase == FaseTurno.colocandoNumero;
 
         return Column(
           children: [
@@ -54,11 +58,13 @@ class PanelDados extends StatelessWidget {
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
                   onTap: permitirCambioDado
-                      ? () => context.read<JuegoBloc>().add(SeleccionarNumeroAncla(
+                      ? () => context.read<JuegoBloc>().add(
+                          SeleccionarNumeroAncla(
                             numeroElegido: state.dado1!,
                             numeroParaColocar: state.dado2!,
                             indiceDado: 1,
-                          ))
+                          ),
+                        )
                       : null,
                 ),
                 const SizedBox(width: 32),
@@ -67,11 +73,13 @@ class PanelDados extends StatelessWidget {
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
                   onTap: permitirCambioDado
-                      ? () => context.read<JuegoBloc>().add(SeleccionarNumeroAncla(
+                      ? () => context.read<JuegoBloc>().add(
+                          SeleccionarNumeroAncla(
                             numeroElegido: state.dado2!,
                             numeroParaColocar: state.dado1!,
                             indiceDado: 2,
-                          ))
+                          ),
+                        )
                       : null,
                 ),
               ],
@@ -83,19 +91,23 @@ class PanelDados extends StatelessWidget {
                 onPressed: () => context.read<JuegoBloc>().add(SaltarTurno()),
                 icon: const Icon(Icons.skip_next, size: 18),
                 label: const Text('Saltar Turno'),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey.shade400),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade400,
+                ),
               ),
             if (state.fase == FaseTurno.confirmandoJugada) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
                 children: [
                   OutlinedButton(
-                    onPressed: () => context.read<JuegoBloc>().add(CancelarConfirmacion()),
+                    onPressed: () =>
+                        context.read<JuegoBloc>().add(CancelarConfirmacion()),
                     child: const Text('Cancelar'),
                   ),
-                  const SizedBox(width: 16),
                   FilledButton(
-                    onPressed: () => context.read<JuegoBloc>().add(ConfirmarJugada()),
+                    onPressed: () =>
+                        context.read<JuegoBloc>().add(ConfirmarJugada()),
                     child: const Text('Confirmar Jugada'),
                   ),
                 ],
@@ -103,10 +115,11 @@ class PanelDados extends StatelessWidget {
             ],
             if (state.fase == FaseTurno.turnoTerminado) ...[
               FilledButton(
-                onPressed: () => context.read<JuegoBloc>().add(IniciarTurno(const {})),
+                onPressed: () =>
+                    context.read<JuegoBloc>().add(IniciarTurno(const {})),
                 child: const Text('Siguiente Turno'),
               ),
-            ]
+            ],
           ],
         );
       },
@@ -132,7 +145,7 @@ class _BotonDado extends StatelessWidget {
     Color colorFondo = Colors.deepPurple.shade50;
     Color colorBorde = Colors.deepPurple;
     Color colorTexto = Colors.deepPurple;
-    
+
     if (esAncla) {
       colorFondo = Colors.yellow.shade100;
       colorBorde = Colors.orange;
@@ -152,12 +165,19 @@ class _BotonDado extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorFondo,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorBorde, width: (esAncla || esColocar) ? 4 : 2),
+          border: Border.all(
+            color: colorBorde,
+            width: (esAncla || esColocar) ? 4 : 2,
+          ),
         ),
         alignment: Alignment.center,
         child: Text(
           valor.toString(),
-          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: colorTexto),
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: colorTexto,
+          ),
         ),
       ),
     );

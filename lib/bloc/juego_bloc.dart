@@ -121,8 +121,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   ) {
     final casillaSeleccionada = state.tablero[event.fila][event.columna];
 
-    if (casillaSeleccionada.iluminacion != EstadoIluminacion.posibleAncla)
+    if (casillaSeleccionada.iluminacion != EstadoIluminacion.posibleAncla) {
       return;
+    }
 
     if (casillaSeleccionada.valorActual == state.numeroAncla &&
         casillaSeleccionada.iluminacion == EstadoIluminacion.posibleAncla &&
@@ -217,8 +218,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
 
   void _onColocarNumero(ColocarNumero event, Emitter<JuegoState> emit) {
     if (state.tablero[event.fila][event.columna].iluminacion !=
-        EstadoIluminacion.posibleColocacion)
+        EstadoIluminacion.posibleColocacion) {
       return;
+    }
 
     var nuevoTablero = state.tablero
         .map(
@@ -242,8 +244,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   }
 
   void _onConfirmarJugada(ConfirmarJugada event, Emitter<JuegoState> emit) {
-    if (state.filaProvisional == null || state.columnaProvisional == null)
+    if (state.filaProvisional == null || state.columnaProvisional == null) {
       return;
+    }
 
     int f = state.filaProvisional!;
     int c = state.columnaProvisional!;

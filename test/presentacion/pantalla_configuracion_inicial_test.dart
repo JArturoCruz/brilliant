@@ -1,3 +1,4 @@
+import 'package:brilliant/main.dart' as app;
 import 'package:brilliant/presentacion/pantalla_configuracion_inicial.dart';
 import 'package:brilliant/presentacion/widgets/boton_inicio.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
@@ -17,6 +18,22 @@ void main() {
     final binding = TestWidgetsFlutterBinding.instance;
     binding.window.clearPhysicalSizeTestValue();
     binding.window.clearDevicePixelRatioTestValue();
+  });
+
+  testWidgets('la aplicación principal se adapta a un viewport móvil', (
+    tester,
+  ) async {
+    final binding = TestWidgetsFlutterBinding.instance;
+    binding.window.physicalSizeTestValue = const Size(320, 740);
+    binding.window.devicePixelRatioTestValue = 1;
+
+    await tester.pumpWidget(const app.BrilliantApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TableroWidget), findsOneWidget);
+    expect(find.byType(BotonInicio), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('arma la pantalla con título, tablero, selector y botón', (
