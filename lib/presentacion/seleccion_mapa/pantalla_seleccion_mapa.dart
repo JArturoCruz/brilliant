@@ -22,7 +22,10 @@ class PantallaSeleccionMapa extends StatelessWidget {
         mapa: MapaTablero.mapa3,
         descripcion: 'Disponible',
       ),
-      _MapaDisponible(nombre: 'Mapa 4', descripcion: 'Próximamente'),
+      _MapaDisponible.disponible(
+        mapa: MapaTablero.mapa4,
+        descripcion: 'Disponible',
+      ),
     ];
 
     return Scaffold(

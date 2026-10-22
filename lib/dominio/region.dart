@@ -10,4 +10,8 @@ enum RegionTablero {
   roja1,
   roja2,
   blanca,
+  naranjaSuperior,
+  naranjaInferior,
+  verde3,
+  verde4,
 }

@@ -1,8 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../dominio/mapa_tablero.dart';
 import '../dominio/navegador_zona_inicial.dart';
 import '../dominio/posicion.dart';
 import '../dominio/tablero.dart';
+import '../dominio/validador_de_jugadas.dart';
 import '../dominio/validador_entrada_zona_inicial.dart';
 import '../dominio/zona_inicial.dart';
 import 'mensajes_zona_inicial.dart';
@@ -17,12 +19,16 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   ZonaInicialCubit({
     ValidadorEntradaZonaInicial? validador,
     NavegadorZonaInicial? navegador,
+    this.mapa = MapaTablero.mapa1,
   })  : _validador = validador ?? const ValidadorEntradaZonaInicial(),
         _navegador = navegador ?? const NavegadorZonaInicial(),
+        _validadorDeJugadas = ValidadorDeJugadas(mapa: mapa),
         super(ZonaInicialState.inicial());
 
   final ValidadorEntradaZonaInicial _validador;
   final NavegadorZonaInicial _navegador;
+  final ValidadorDeJugadas _validadorDeJugadas;
+  final MapaTablero mapa;
 
   /// Selecciona una celda de la ZonaInicial para colocarle un número.
   void seleccionarCelda(Posicion posicion) {
@@ -68,8 +74,32 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
       return;
     }
 
+    if (!puedeAsignarPorRegla(numero)) {
+      _notificar('Ese número no cumple la regla de esta zona.');
+      return;
+    }
+
     asignarValor(sel, numero);
     _avanzarASiguienteVacia();
+  }
+
+  bool puedeAsignarPorRegla(int numero) {
+    final posicion = state.seleccionada;
+    if (posicion == null) return false;
+    final tablero = TableroJuego();
+    for (final entrada in state.valores.entries) {
+      tablero.asignarValor(
+        entrada.key.fila,
+        entrada.key.columna,
+        entrada.value,
+      );
+    }
+    return _validadorDeJugadas.puedeAsignar(
+      tablero,
+      posicion.fila,
+      posicion.columna,
+      numero,
+    );
   }
 
   /// Borra el valor de la celda seleccionada.

@@ -1,4 +1,6 @@
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
+import 'package:brilliant/dominio/mapa_tablero.dart';
+import 'package:brilliant/dominio/posicion.dart';
 import 'package:brilliant/presentacion/widgets/boton_numero.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +24,62 @@ void main() {
     cubit.close();
   });
 
-  testWidgets('tocar un número lo asigna a la celda seleccionada', (tester) async {
+  testWidgets('filtra números según la zona naranja del mapa 4', (
+    tester,
+  ) async {
+    final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+    await tester.pumpWidget(_envolver(cubit));
+
+    for (final numero in [1, 2, 3]) {
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '$numero'),
+            )
+            .onPressed,
+        isNull,
+      );
+    }
+    for (final numero in [4, 5, 6]) {
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '$numero'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    }
+
+    cubit.seleccionarCelda(const Posicion(6, 4));
+    await tester.pump();
+
+    for (final numero in [1, 2, 3]) {
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '$numero'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    }
+    for (final numero in [4, 5, 6]) {
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, '$numero'),
+            )
+            .onPressed,
+        isNull,
+      );
+    }
+    cubit.close();
+  });
+
+  testWidgets('tocar un número lo asigna a la celda seleccionada', (
+    tester,
+  ) async {
     final cubit = ZonaInicialCubit();
     final primera = cubit.state.seleccionada!;
     await tester.pumpWidget(_envolver(cubit));
@@ -34,7 +91,9 @@ void main() {
     cubit.close();
   });
 
-  testWidgets('el botón de borrar está deshabilitado si la celda está vacía', (tester) async {
+  testWidgets('el botón de borrar está deshabilitado si la celda está vacía', (
+    tester,
+  ) async {
     final cubit = ZonaInicialCubit();
     await tester.pumpWidget(_envolver(cubit));
 
@@ -43,21 +102,26 @@ void main() {
     cubit.close();
   });
 
-  testWidgets('el botón de borrar se habilita tras colocar un número en la celda seleccionada', (tester) async {
-    final cubit = ZonaInicialCubit();
-    final celda = cubit.state.seleccionada!;
-    await tester.pumpWidget(_envolver(cubit));
+  testWidgets(
+    'el botón de borrar se habilita tras colocar un número en la celda seleccionada',
+    (tester) async {
+      final cubit = ZonaInicialCubit();
+      final celda = cubit.state.seleccionada!;
+      await tester.pumpWidget(_envolver(cubit));
 
-    cubit.asignarValor(celda, 2);
-    await tester.pump();
+      cubit.asignarValor(celda, 2);
+      await tester.pump();
 
-    expect(cubit.state.valores[celda], 2);
-    final boton = tester.widget<IconButton>(find.byType(IconButton));
-    expect(boton.onPressed, isNotNull);
-    cubit.close();
-  });
+      expect(cubit.state.valores[celda], 2);
+      final boton = tester.widget<IconButton>(find.byType(IconButton));
+      expect(boton.onPressed, isNotNull);
+      cubit.close();
+    },
+  );
 
-  testWidgets('tocar el botón de borrar limpia la celda seleccionada', (tester) async {
+  testWidgets('tocar el botón de borrar limpia la celda seleccionada', (
+    tester,
+  ) async {
     final cubit = ZonaInicialCubit();
     final primera = cubit.state.seleccionada!;
     await tester.pumpWidget(_envolver(cubit));

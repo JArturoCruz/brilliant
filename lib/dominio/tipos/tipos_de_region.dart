@@ -4,6 +4,7 @@ import 'tipo_amarillo.dart';
 import 'tipo_azul.dart';
 import 'tipo_blanco.dart';
 import 'tipo_morado.dart';
+import 'tipo_naranja.dart';
 import 'tipo_rojo.dart';
 import 'tipo_verde.dart';
 
@@ -23,6 +24,16 @@ class TiposDeRegion {
     RegionTablero.roja1: TipoRojo(),
     RegionTablero.roja2: TipoRojo(),
     RegionTablero.blanca: TipoBlanco(),
+    RegionTablero.naranjaSuperior: TipoNaranja(
+      numeroMinimo: 4,
+      numeroMaximo: 6,
+    ),
+    RegionTablero.naranjaInferior: TipoNaranja(
+      numeroMinimo: 1,
+      numeroMaximo: 3,
+    ),
+    RegionTablero.verde3: TipoVerde(),
+    RegionTablero.verde4: TipoVerde(),
   };
 
   static Tipo obtenerTipo(RegionTablero region) {

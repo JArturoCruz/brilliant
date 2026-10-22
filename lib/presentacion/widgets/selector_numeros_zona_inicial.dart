@@ -32,7 +32,7 @@ class SelectorNumerosZonaInicial extends StatelessWidget {
               BotonNumero(
                 numero: n,
                 marcado: valorSel == n,
-                habilitado: hayCeldaEditable,
+                habilitado: hayCeldaEditable && cubit.puedeAsignarPorRegla(n),
                 usadoEnOtraCelda: state.usados.contains(n) && valorSel != n,
                 onPressed: () => cubit.asignarASeleccionada(n),
               ),

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('muestra cuatro mapas y habilita los tres primeros', (
+  testWidgets('muestra cuatro mapas y habilita los cuatro', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaSeleccionMapa()));
@@ -15,16 +15,16 @@ void main() {
     expect(find.text('Mapa 2'), findsOneWidget);
     expect(find.text('Mapa 3'), findsOneWidget);
     expect(find.text('Mapa 4'), findsOneWidget);
-    expect(find.text('Disponible'), findsNWidgets(3));
-    expect(find.text('Próximamente'), findsOneWidget);
+    expect(find.text('Disponible'), findsNWidgets(4));
+    expect(find.text('Próximamente'), findsNothing);
 
     final tarjetas = tester.widgetList<TarjetaMapa>(find.byType(TarjetaMapa));
     expect(tarjetas, hasLength(4));
-    expect(tarjetas.where((tarjeta) => tarjeta.onTap != null), hasLength(3));
+    expect(tarjetas.where((tarjeta) => tarjeta.onTap != null), hasLength(4));
     expect(tarjetas.first.onTap, isNotNull);
     expect(tarjetas.elementAt(1).onTap, isNotNull);
     expect(tarjetas.elementAt(2).onTap, isNotNull);
-    expect(tarjetas.last.onTap, isNull);
+    expect(tarjetas.last.onTap, isNotNull);
   });
 
   testWidgets('seleccionar el mapa 2 abre el tablero correspondiente', (
@@ -53,6 +53,19 @@ void main() {
 
     expect(find.byType(PantallaJuego), findsOneWidget);
     expect(tester.widget<PantallaJuego>(find.byType(PantallaJuego)).mapa.id, 3);
+    expect(find.byType(TableroWidget), findsOneWidget);
+  });
+
+  testWidgets('seleccionar el mapa 4 abre el tablero correspondiente', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PantallaSeleccionMapa()));
+
+    await tester.tap(find.text('Mapa 4'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PantallaJuego), findsOneWidget);
+    expect(tester.widget<PantallaJuego>(find.byType(PantallaJuego)).mapa.id, 4);
     expect(find.byType(TableroWidget), findsOneWidget);
   });
 

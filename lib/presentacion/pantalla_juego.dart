@@ -35,7 +35,9 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     return MultiBlocProvider(
       providers: [
         BlocProvider<JuegoBloc>(create: (_) => JuegoBloc(mapa: widget.mapa)),
-        BlocProvider<ZonaInicialCubit>(create: (_) => ZonaInicialCubit()),
+        BlocProvider<ZonaInicialCubit>(
+          create: (_) => ZonaInicialCubit(mapa: widget.mapa),
+        ),
       ],
       child: AtajosTecladoZonaInicial(
         child: MensajesZonaInicialListener(

@@ -6,6 +6,7 @@ import 'package:brilliant/dominio/tipos/estado_region.dart';
 import 'package:brilliant/dominio/tipos/tipo_blanco.dart';
 import 'package:brilliant/dominio/topologia_tablero.dart';
 import 'package:brilliant/dominio/validador_de_jugadas.dart';
+import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -327,6 +328,178 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('MapaTablero.mapa4', () {
+    test('coincide con la matriz y cubre cada casilla exactamente una vez', () {
+      const esperado = [
+        [
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+          RegionTablero.naranjaSuperior,
+        ],
+        [
+          RegionTablero.amarilla,
+          RegionTablero.roja1,
+          RegionTablero.azul1,
+          RegionTablero.verde1,
+          RegionTablero.azul2,
+          RegionTablero.roja2,
+          RegionTablero.amarilla,
+        ],
+        [
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+        ],
+        [
+          RegionTablero.amarilla,
+          RegionTablero.verde2,
+          RegionTablero.azul1,
+          RegionTablero.morada1,
+          RegionTablero.azul2,
+          RegionTablero.verde3,
+          RegionTablero.amarilla,
+        ],
+        [
+          RegionTablero.roja1,
+          RegionTablero.roja1,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.morada1,
+          RegionTablero.roja2,
+          RegionTablero.roja2,
+        ],
+        [
+          RegionTablero.amarilla,
+          RegionTablero.roja1,
+          RegionTablero.azul1,
+          RegionTablero.verde4,
+          RegionTablero.azul2,
+          RegionTablero.roja2,
+          RegionTablero.amarilla,
+        ],
+        [
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+          RegionTablero.naranjaInferior,
+        ],
+      ];
+      final posiciones = MapaTablero.mapa4.coordenadasPorRegion.values
+          .expand((region) => region)
+          .toList();
+
+      for (var fila = 0; fila < esperado.length; fila++) {
+        for (var columna = 0; columna < esperado[fila].length; columna++) {
+          expect(
+            TopologiaTablero.regionDeCelda(
+              fila,
+              columna,
+              mapa: MapaTablero.mapa4,
+            ),
+            esperado[fila][columna],
+            reason: 'Casilla ($fila, $columna)',
+          );
+        }
+      }
+
+      expect(posiciones, hasLength(49));
+      expect(posiciones.toSet(), hasLength(49));
+    });
+
+    test('zona naranja superior admite solo 4, 5 y 6, con repetición', () {
+      final tablero = TableroJuego();
+      const validador = ValidadorDeJugadas(mapa: MapaTablero.mapa4);
+      final superior = TopologiaTablero.posicionesDe(
+        RegionTablero.naranjaSuperior,
+        mapa: MapaTablero.mapa4,
+      );
+      for (final posicion in superior.take(2)) {
+        tablero.asignarValor(posicion.fila, posicion.columna, 4);
+      }
+
+      for (final valor in [4, 5, 6]) {
+        expect(
+          validador.puedeAsignar(
+            tablero,
+            superior.last.fila,
+            superior.last.columna,
+            valor,
+          ),
+          isTrue,
+        );
+      }
+      for (final valor in [1, 2, 3]) {
+        expect(
+          validador.puedeAsignar(
+            tablero,
+            superior.last.fila,
+            superior.last.columna,
+            valor,
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('zona naranja inferior admite solo 1, 2 y 3, con repetición', () {
+      final tablero = TableroJuego();
+      const validador = ValidadorDeJugadas(mapa: MapaTablero.mapa4);
+      final inferior = TopologiaTablero.posicionesDe(
+        RegionTablero.naranjaInferior,
+        mapa: MapaTablero.mapa4,
+      );
+      for (final posicion in inferior.take(2)) {
+        tablero.asignarValor(posicion.fila, posicion.columna, 2);
+      }
+
+      for (final valor in [1, 2, 3]) {
+        expect(
+          validador.puedeAsignar(
+            tablero,
+            inferior.last.fila,
+            inferior.last.columna,
+            valor,
+          ),
+          isTrue,
+        );
+      }
+      for (final valor in [4, 5, 6]) {
+        expect(
+          validador.puedeAsignar(
+            tablero,
+            inferior.last.fila,
+            inferior.last.columna,
+            valor,
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('configuración inicial respeta los rangos naranjas', () {
+      final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+      expect(cubit.state.seleccionada, const Posicion(0, 2));
+      expect(cubit.puedeAsignarPorRegla(3), isFalse);
+      expect(cubit.puedeAsignarPorRegla(4), isTrue);
+
+      cubit.seleccionarCelda(const Posicion(6, 4));
+      expect(cubit.puedeAsignarPorRegla(3), isTrue);
+      expect(cubit.puedeAsignarPorRegla(4), isFalse);
+      cubit.close();
     });
   });
 }
