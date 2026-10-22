@@ -1,5 +1,7 @@
 import 'package:brilliant/main.dart' as app;
 import 'package:brilliant/presentacion/pantalla_configuracion_inicial.dart';
+import 'package:brilliant/presentacion/pantalla_juego.dart';
+import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
 import 'package:brilliant/presentacion/widgets/boton_inicio.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
 import 'package:brilliant/presentacion/widgets/tablero_widget.dart';
@@ -20,7 +22,7 @@ void main() {
     binding.window.clearDevicePixelRatioTestValue();
   });
 
-  testWidgets('la aplicación principal se adapta a un viewport móvil', (
+  testWidgets('navega desde inicio al mapa disponible en móvil', (
     tester,
   ) async {
     final binding = TestWidgetsFlutterBinding.instance;
@@ -30,6 +32,26 @@ void main() {
     await tester.pumpWidget(const app.BrilliantApp());
     await tester.pumpAndSettle();
 
+    expect(find.text('Brilliant'), findsOneWidget);
+    expect(find.byType(TableroWidget), findsNothing);
+
+    await tester.tap(find.text('Inicio'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PantallaSeleccionMapa), findsOneWidget);
+    expect(find.text('Mapa 1'), findsOneWidget);
+    expect(find.text('Mapa 2'), findsOneWidget);
+    expect(find.text('Mapa 3'), findsOneWidget);
+    expect(find.text('Mapa 4'), findsOneWidget);
+
+    await tester.tap(find.text('Mapa 2'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PantallaSeleccionMapa), findsOneWidget);
+
+    await tester.tap(find.text('Mapa 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PantallaJuego), findsOneWidget);
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
