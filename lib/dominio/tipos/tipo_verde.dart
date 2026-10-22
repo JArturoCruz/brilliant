@@ -13,7 +13,11 @@ class TipoVerde extends Tipo {
   String get descripcion => 'Se puede colocar cualquier número';
 
   @override
-  bool esPosibleAgregar(List<int> actuales, int posible) => true;
+  bool esPosibleAgregar(
+    List<int> actuales,
+    int posible, {
+    int? capacidad,
+  }) => true;
 
   @override
   Map<int, int> get puntuaciones => {1: 4, 2: 3, 3: 2};

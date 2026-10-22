@@ -44,13 +44,10 @@ void main() {
     expect(find.text('Mapa 3'), findsOneWidget);
     expect(find.text('Mapa 4'), findsOneWidget);
 
-    await tester.tap(find.text('Mapa 2'));
-    await tester.pumpAndSettle();
-    expect(find.byType(PantallaSeleccionMapa), findsOneWidget);
-
     await tester.tap(find.text('Mapa 1'));
     await tester.pumpAndSettle();
 
+    expect(tester.widget<PantallaJuego>(find.byType(PantallaJuego)).mapa.id, 1);
     expect(find.byType(PantallaJuego), findsOneWidget);
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);

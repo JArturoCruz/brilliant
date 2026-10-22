@@ -1,6 +1,9 @@
 import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/dado.dart';
+import 'package:brilliant/dominio/mapa_tablero.dart';
+import 'package:brilliant/dominio/tablero.dart';
 import 'package:brilliant/dominio/tipos/tipo.dart';
+import 'package:brilliant/dominio/validador_de_jugadas.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../dominio/region.dart';
@@ -8,10 +11,11 @@ import 'juego_event.dart';
 import 'juego_state.dart';
 
 import '../../dominio/topologia_tablero.dart';
-import '../../dominio/tipos/tipos_de_region.dart';
 
 class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
-  JuegoBloc() : super(_estadoInicial()) {
+  JuegoBloc({this.mapa = MapaTablero.mapa1})
+    : _validador = ValidadorDeJugadas(mapa: mapa),
+      super(_estadoInicial()) {
     on<IniciarTurno>(_onIniciarTurno);
     on<SeleccionarNumeroAncla>(_onSeleccionarNumeroAncla);
     on<SeleccionarCasillaAncla>(_onSeleccionarCasillaAncla);
@@ -21,6 +25,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     on<CancelarConfirmacion>(_onCancelarConfirmacion);
     on<SaltarTurno>(_onSaltarTurno); // NUEVO
   }
+
+  final MapaTablero mapa;
+  final ValidadorDeJugadas _validador;
 
   static JuegoState _estadoInicial() {
     List<List<Casilla>> tableroInicial = List.generate(
@@ -286,7 +293,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       if (_esRegionCompleta(nuevoTablero, region)) {
         nuevasRegionesCompletadas.add(region);
 
-        final tipo = TiposDeRegion.obtenerTipo(region);
+        final tipo = mapa.tipoDe(region);
         final regionKey = region.name;
 
         int posicionActual = (nuevoContadorRegiones[regionKey] ?? 0) + 1;
@@ -410,34 +417,30 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     RegionTablero regionBuscada,
   ) {
     bool alMenosUnaCelda = false;
-    for (var f = 0; f < TopologiaTablero.filas; f++) {
-      for (var c = 0; c < TopologiaTablero.columnas; c++) {
-        if (TopologiaTablero.regionDeCelda(f, c) == regionBuscada) {
-          alMenosUnaCelda = true;
-          if (tablero[f][c].valorActual == null) return false;
-        }
-      }
+    for (final pos in TopologiaTablero.posicionesDe(
+      regionBuscada,
+      mapa: mapa,
+    )) {
+      alMenosUnaCelda = true;
+      if (tablero[pos.fila][pos.columna].valorActual == null) return false;
     }
     return alMenosUnaCelda;
   }
 
   bool _validarReglaDeRegion(int fDestino, int cDestino, int numeroColocar) {
-    final regionDestino = TopologiaTablero.regionDeCelda(fDestino, cDestino);
-    if (regionDestino == null) return false;
-
-    final tipoRegion = TiposDeRegion.obtenerTipo(regionDestino);
-    List<int> numerosActualesEnRegion = [];
-
-    for (var f = 0; f < TopologiaTablero.filas; f++) {
-      for (var c = 0; c < TopologiaTablero.columnas; c++) {
-        final regActual = TopologiaTablero.regionDeCelda(f, c);
-        if (regActual == regionDestino) {
-          final valorCelda = state.tablero[f][c].valorActual;
-          if (valorCelda != null) numerosActualesEnRegion.add(valorCelda);
-        }
-      }
-    }
-    return tipoRegion.esPosibleAgregar(numerosActualesEnRegion, numeroColocar);
+    final tablero = TableroJuego(
+      state.tablero
+          .map(
+            (fila) => fila.map((casilla) => casilla.valorActual).toList(),
+          )
+          .toList(),
+    );
+    return _validador.puedeAsignar(
+      tablero,
+      fDestino,
+      cDestino,
+      numeroColocar,
+    );
   }
 
   bool _tieneColocacionValida(

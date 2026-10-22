@@ -4,8 +4,9 @@ import 'package:brilliant/dominio/casilla.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/zona_inicial_cubit.dart';
+import '../../dominio/mapa_tablero.dart';
 import '../../dominio/posicion.dart';
-import '../../dominio/tipos/tipos_de_region.dart';
+import '../../dominio/region.dart';
 import '../../dominio/topologia_tablero.dart';
 import '../../dominio/zona_inicial.dart';
 
@@ -17,20 +18,29 @@ class CeldaTableroWidget extends StatelessWidget {
     super.key,
     required this.posicion,
     required this.state,
+    this.mapa = MapaTablero.mapa1,
     this.casillaJuego,
   });
 
   final Posicion posicion;
   final ZonaInicialState state;
+  final MapaTablero mapa;
   final Casilla? casillaJuego;
 
   @override
   Widget build(BuildContext context) {
     final region =
-        TopologiaTablero.regionDeCelda(posicion.fila, posicion.columna);
+        TopologiaTablero.regionDeCelda(
+          posicion.fila,
+          posicion.columna,
+          mapa: mapa,
+        );
     final color = region == null
         ? Colors.grey.shade800
-        : TiposDeRegion.obtenerTipo(region).color;
+        : mapa.tipoDe(region).color;
+    final colorTexto = region == RegionTablero.blanca
+        ? Colors.black
+        : Colors.white;
 
     final esInicial = ZonaInicial.posiciones.contains(posicion);
     final seleccionada = state.seleccionada == posicion;
@@ -50,19 +60,25 @@ class CeldaTableroWidget extends StatelessWidget {
 
         // Si está en modo provisional, mostramos el número del dado a colocar con un estilo translúcido
         if (esProvisionalActual && juegoState.numeroColocar != null) {
-          contenido = _texto('${juegoState.numeroColocar}', Colors.white70);
-        } 
+          contenido = _texto(
+            '${juegoState.numeroColocar}',
+            colorTexto.withAlpha(180),
+          );
+        }
         // Si el juego ya inició y la casilla tiene valor, mostramos el número oficial
         else if (state.iniciada && casillaJuego?.valorActual != null) {
-          contenido = _texto('${casillaJuego!.valorActual}', Colors.white);
+          contenido = _texto('${casillaJuego!.valorActual}', colorTexto);
         } 
         // Si no ha iniciado, mantenemos tu lógica de la configuración inicial
         else if (valorInicial != null) {
-          contenido = _texto('$valorInicial', Colors.white);
+          contenido = _texto('$valorInicial', colorTexto);
         } else if (esInicial) {
-          contenido = _texto('?', Colors.white70);
+          contenido = _texto('?', colorTexto.withAlpha(180));
         } else if (casillaJuego?.valorActual != null) {
-          contenido = _texto('${casillaJuego!.valorActual}', Colors.white24);
+          contenido = _texto(
+            '${casillaJuego!.valorActual}',
+            colorTexto.withAlpha(60),
+          );
         }
 
         // 2. LÓGICA DE DECORACIÓN (Bordes y sombras de iluminación)

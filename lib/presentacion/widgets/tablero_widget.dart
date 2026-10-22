@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/posicion.dart';
+import '../../dominio/mapa_tablero.dart';
 import '../../dominio/topologia_tablero.dart';
 import 'celda_tablero_widget.dart';
 
@@ -13,7 +14,9 @@ import 'celda_tablero_widget.dart';
 /// responsabilidad es el layout del tablero; el pintado de cada celda vive
 /// en CeldaTableroWidget.
 class TableroWidget extends StatelessWidget {
-  const TableroWidget({super.key});
+  const TableroWidget({super.key, this.mapa = MapaTablero.mapa1});
+
+  final MapaTablero mapa;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +59,7 @@ class TableroWidget extends StatelessWidget {
                                   child: CeldaTableroWidget(
                                     posicion: Posicion(f, c),
                                     state: zonaState,
+                                    mapa: mapa,
                                     // 4. PASAMOS LOS DATOS DEL JUEGO A LA CELDA
                                     casillaJuego: juegoState.tablero[f][c], 
                                   ),

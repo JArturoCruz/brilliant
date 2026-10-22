@@ -1,5 +1,6 @@
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/presentacion/widgets/historial_partida_widget.dart';
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,12 @@ import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
 
 class PantallaJuego extends StatefulWidget {
-  const PantallaJuego({super.key});
+  const PantallaJuego({
+    super.key,
+    this.mapa = MapaTablero.mapa1,
+  });
+
+  final MapaTablero mapa;
 
   @override
   State<PantallaJuego> createState() => _PantallaJuegoState();
@@ -26,9 +32,14 @@ class _PantallaJuegoState extends State<PantallaJuego> {
 
   @override
   Widget build(BuildContext context) {
-    return AtajosTecladoZonaInicial(
-      child: MensajesZonaInicialListener(
-        child: Scaffold(
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<JuegoBloc>(create: (_) => JuegoBloc(mapa: widget.mapa)),
+        BlocProvider<ZonaInicialCubit>(create: (_) => ZonaInicialCubit()),
+      ],
+      child: AtajosTecladoZonaInicial(
+        child: MensajesZonaInicialListener(
+          child: Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.black,
             elevation: 0,
@@ -113,7 +124,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                           children: [
                             const InstruccionZonaInicial(),
                             const SizedBox(height: 16),
-                            const TableroWidget(),
+                            TableroWidget(mapa: widget.mapa),
                             const SizedBox(height: 24),
                             _PanelPartida(tablero: tablero, compacto: true),
                           ],
@@ -139,7 +150,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                 children: [
                                   const InstruccionZonaInicial(),
                                   const SizedBox(height: 16),
-                                  const TableroWidget(),
+                                  TableroWidget(mapa: widget.mapa),
                                 ],
                               ),
                             ),
@@ -153,6 +164,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                 );
               },
             ),
+          ),
           ),
         ),
       ),

@@ -13,7 +13,11 @@ class TipoAzul extends Tipo {
   String get descripcion => 'Todos los números deben de ser iguales';
 
   @override
-  bool esPosibleAgregar(List<int> actuales, int posible) {
+  bool esPosibleAgregar(
+    List<int> actuales,
+    int posible, {
+    int? capacidad,
+  }) {
     return actuales.isEmpty || actuales.every((element) => element == posible);
   }
 

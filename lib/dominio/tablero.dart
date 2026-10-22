@@ -1,4 +1,5 @@
 import 'region.dart';
+import 'mapa_tablero.dart';
 import 'topologia_tablero.dart';
 
 /// Responsable ÚNICAMENTE de guardar y exponer el estado (valores) de una
@@ -26,8 +27,11 @@ class TableroJuego {
   int? obtenerValor(int fila, int columna) => _matriz[fila][columna];
 
   /// Extrae los enteros existentes en la región (omite celdas con null).
-  List<int> extraer(RegionTablero region) {
-    final posiciones = TopologiaTablero.posicionesDe(region);
+  List<int> extraer(
+    RegionTablero region, {
+    MapaTablero mapa = MapaTablero.mapa1,
+  }) {
+    final posiciones = TopologiaTablero.posicionesDe(region, mapa: mapa);
     final List<int> numeros = [];
 
     for (final pos in posiciones) {
@@ -40,8 +44,11 @@ class TableroJuego {
   }
 
   /// Extrae la lista completa incluyendo celdas nulas.
-  List<int?> extraerCompleto(RegionTablero region) {
-    final posiciones = TopologiaTablero.posicionesDe(region);
+  List<int?> extraerCompleto(
+    RegionTablero region, {
+    MapaTablero mapa = MapaTablero.mapa1,
+  }) {
+    final posiciones = TopologiaTablero.posicionesDe(region, mapa: mapa);
     return posiciones.map((p) => _matriz[p.fila][p.columna]).toList();
   }
 }

@@ -14,7 +14,13 @@ extension TipoEstadoRegion on Tipo {
   bool regionEsValida(List<int> valores) {
     for (var i = 0; i < valores.length; i++) {
       final resto = List<int>.from(valores)..removeAt(i);
-      if (!esPosibleAgregar(resto, valores[i])) return false;
+      if (!esPosibleAgregar(
+        resto,
+        valores[i],
+        capacidad: valores.length,
+      )) {
+        return false;
+      }
     }
     return true;
   }

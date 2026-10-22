@@ -8,7 +8,11 @@ abstract class Tipo {
 
   Color get color;
   String get descripcion;
-  bool esPosibleAgregar(List<int> actuales, int posible);
+  bool esPosibleAgregar(
+    List<int> actuales,
+    int posible, {
+    int? capacidad,
+  });
 
   /// Puntos otorgados según la POSICIÓN en la que un jugador completa esta
   /// región (es una carrera: solo puntúan los 3 primeros en completarla).

@@ -1,28 +1,34 @@
 import 'region.dart';
 import 'tablero.dart';
+import 'mapa_tablero.dart';
 import 'tipos/estado_region.dart';
-import 'tipos/tipos_de_region.dart';
 import 'topologia_tablero.dart';
 
 /// Responsable ÚNICAMENTE de orquestar la validación de jugadas: combina
 /// el estado del tablero (TableroJuego), el diseño de las regiones
-/// (TopologiaTablero) y la regla de cada Tipo (TiposDeRegion) para decidir
+/// (TopologiaTablero) y la regla de cada Tipo del mapa para decidir
 /// si una jugada es válida o cuál es el estado de una región. Ninguna de
 /// esas otras clases necesita conocer a las demás para cumplir su propia
 /// función; esta es la única que las conecta.
 class ValidadorDeJugadas {
-  const ValidadorDeJugadas();
+  const ValidadorDeJugadas({this.mapa = MapaTablero.mapa1});
+
+  final MapaTablero mapa;
 
   /// Indica si [valor] podría colocarse en (fila, columna) sin romper la
   /// regla del Tipo de la región a la que pertenece esa celda, dado lo que
   /// ya hay colocado en el resto de celdas de esa misma región.
   /// Devuelve false si la celda no pertenece a ninguna región.
   bool puedeAsignar(TableroJuego tablero, int fila, int columna, int valor) {
-    final region = TopologiaTablero.regionDeCelda(fila, columna);
+    final region = TopologiaTablero.regionDeCelda(
+      fila,
+      columna,
+      mapa: mapa,
+    );
     if (region == null) return false;
 
-    final tipo = TiposDeRegion.obtenerTipo(region);
-    final posiciones = TopologiaTablero.posicionesDe(region);
+    final tipo = mapa.tipoDe(region);
+    final posiciones = TopologiaTablero.posicionesDe(region, mapa: mapa);
 
     final actuales = <int>[];
     for (final pos in posiciones) {
@@ -30,13 +36,17 @@ class ValidadorDeJugadas {
       final valorActual = tablero.obtenerValor(pos.fila, pos.columna);
       if (valorActual != null) actuales.add(valorActual);
     }
-    return tipo.esPosibleAgregar(actuales, valor);
+    return tipo.esPosibleAgregar(
+      actuales,
+      valor,
+      capacidad: posiciones.length,
+    );
   }
 
   /// Estado actual (incompleta / completa / completaConBonificacion) de
   /// una región concreta del tablero, según la regla de su Tipo.
   EstadoRegion estadoDe(TableroJuego tablero, RegionTablero region) {
-    final tipo = TiposDeRegion.obtenerTipo(region);
-    return tipo.calcularEstado(tablero.extraerCompleto(region));
+    final tipo = mapa.tipoDe(region);
+    return tipo.calcularEstado(tablero.extraerCompleto(region, mapa: mapa));
   }
 }

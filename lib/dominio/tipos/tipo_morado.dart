@@ -14,13 +14,18 @@ class TipoMorado extends Tipo {
   String get descripcion => 'Máximo dos números diferentes por zona';
 
   @override
-  bool esPosibleAgregar(List<int> actuales, int posible) {
+  bool esPosibleAgregar(
+    List<int> actuales,
+    int posible, {
+    int? capacidad,
+  }) {
     final distintos = actuales.toSet()..add(posible);
     if (distintos.length > 2) return false;
 
-    // Las regiones moradas tienen seis casillas: no se puede ocupar la
-    // última con el mismo valor de las cinco anteriores.
-    return actuales.length != 5 || distintos.length > 1;
+    final ultimaCasilla = capacidad == null
+        ? actuales.length == 5
+        : actuales.length == capacidad - 1;
+    return !ultimaCasilla || distintos.length > 1;
   }
 
   @override

@@ -5,6 +5,10 @@ import 'tipo.dart';
 /// regla de negocio en dos clases distintas.
 mixin ReglaTodosDistintos on Tipo {
   @override
-  bool esPosibleAgregar(List<int> actuales, int posible) =>
+  bool esPosibleAgregar(
+    List<int> actuales,
+    int posible, {
+    int? capacidad,
+  }) =>
       !actuales.contains(posible);
 }

@@ -2,6 +2,7 @@ import '../region.dart';
 import 'tipo.dart';
 import 'tipo_amarillo.dart';
 import 'tipo_azul.dart';
+import 'tipo_blanco.dart';
 import 'tipo_morado.dart';
 import 'tipo_rojo.dart';
 import 'tipo_verde.dart';
@@ -21,6 +22,7 @@ class TiposDeRegion {
     RegionTablero.morada2: TipoMorado(),
     RegionTablero.roja1: TipoRojo(),
     RegionTablero.roja2: TipoRojo(),
+    RegionTablero.blanca: TipoBlanco(),
   };
 
   static Tipo obtenerTipo(RegionTablero region) {

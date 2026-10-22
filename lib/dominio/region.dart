@@ -1,4 +1,4 @@
-/// Identificador de cada una de las 9 regiones de color del tablero.
+/// Identificador de las regiones de color disponibles en los mapas.
 enum RegionTablero {
   amarilla,
   verde1,
@@ -9,4 +9,5 @@ enum RegionTablero {
   morada2,
   roja1,
   roja2,
+  blanca,
 }
