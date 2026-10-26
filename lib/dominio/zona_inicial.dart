@@ -40,6 +40,16 @@ class ZonaInicial {
         Posicion(6, 2),
       ];
     }
+    if (mapa.id == MapaTablero.mapa4.id) {
+      return const [
+        Posicion(0, 4),
+        Posicion(2, 2),
+        Posicion(2, 5),
+        Posicion(3, 0),
+        Posicion(5, 4),
+        Posicion(6, 1),
+      ];
+    }
     return posiciones;
   }
 

@@ -135,6 +135,44 @@ void main() {
     bloque.close();
   });
 
+  testWidgets('muestra las seis celdas iniciales del mapa 4', (tester) async {
+    final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+    final bloque = JuegoBloc(mapa: MapaTablero.mapa4);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<JuegoBloc>.value(value: bloque),
+            BlocProvider<ZonaInicialCubit>.value(value: cubit),
+          ],
+          child: const Scaffold(body: TableroWidget(mapa: MapaTablero.mapa4)),
+        ),
+      ),
+    );
+
+    expect(find.text('?'), findsNWidgets(ZonaInicial.cantidadCeldas));
+    for (final posicion in const [
+      Posicion(0, 4),
+      Posicion(2, 2),
+      Posicion(2, 5),
+      Posicion(3, 0),
+      Posicion(5, 4),
+      Posicion(6, 1),
+    ]) {
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CeldaTableroWidget &&
+              widget.posicion == posicion &&
+              widget.state.valores.containsKey(posicion),
+        ),
+        findsOneWidget,
+      );
+    }
+    cubit.close();
+    bloque.close();
+  });
+
   testWidgets(
     'tocar una celda de la ZonaInicial dentro del tablero la selecciona',
     (tester) async {

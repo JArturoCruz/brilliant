@@ -38,6 +38,17 @@ void main() {
       ]);
     });
 
+    test('usa las posiciones iniciales solicitadas para el mapa 4', () {
+      expect(ZonaInicial.posicionesParaMapa(MapaTablero.mapa4), const [
+        Posicion(0, 4),
+        Posicion(2, 2),
+        Posicion(2, 5),
+        Posicion(3, 0),
+        Posicion(5, 4),
+        Posicion(6, 1),
+      ]);
+    });
+
     test('es válida con los números 1 a 6 en cualquier orden', () {
       expect(ZonaInicial.esValida([6, 1, 4, 2, 5, 3]), isTrue);
     });

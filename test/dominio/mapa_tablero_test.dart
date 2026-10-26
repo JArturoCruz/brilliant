@@ -492,11 +492,11 @@ void main() {
 
     test('configuración inicial respeta los rangos naranjas', () {
       final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
-      expect(cubit.state.seleccionada, const Posicion(0, 2));
+      expect(cubit.state.seleccionada, const Posicion(0, 4));
       expect(cubit.puedeAsignarPorRegla(3), isFalse);
       expect(cubit.puedeAsignarPorRegla(4), isTrue);
 
-      cubit.seleccionarCelda(const Posicion(6, 4));
+      cubit.seleccionarCelda(const Posicion(6, 1));
       expect(cubit.puedeAsignarPorRegla(3), isTrue);
       expect(cubit.puedeAsignarPorRegla(4), isFalse);
       cubit.close();

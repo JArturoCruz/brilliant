@@ -51,7 +51,7 @@ void main() {
       );
     }
 
-    cubit.seleccionarCelda(const Posicion(6, 4));
+    cubit.seleccionarCelda(const Posicion(6, 1));
     await tester.pump();
 
     for (final numero in [1, 2, 3]) {

@@ -36,6 +36,36 @@ void main() {
     expect(find.byType(Tooltip), findsNWidgets(9));
     expect(find.text('Verde izq.'), findsOneWidget);
     expect(find.text('Verde der.'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('regla-simbolo-azul1')))
+          .data,
+      '=',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('regla-simbolo-verde1')))
+          .data,
+      '?',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('regla-simbolo-roja1')))
+          .data,
+      '≠',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('regla-simbolo-morada1')))
+          .data,
+      'XO',
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('regla-simbolo-amarilla')))
+          .data,
+      '≠',
+    );
     for (var puesto = 1; puesto <= 3; puesto++) {
       final premio = tester.widget<Text>(
         find.byKey(ValueKey('puntuacion-roja1-$puesto')),
@@ -43,6 +73,46 @@ void main() {
       expect(premio.style!.color, Colors.amberAccent);
       expect(premio.style!.decoration, TextDecoration.none);
     }
+  });
+
+  testWidgets('muestra en naranja el rango de cada zona del mapa 4', (
+    tester,
+  ) async {
+    final juegoBloc = JuegoBloc(mapa: MapaTablero.mapa4);
+    final zonaCubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+    addTearDown(juegoBloc.close);
+    addTearDown(zonaCubit.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: juegoBloc),
+            BlocProvider.value(value: zonaCubit),
+          ],
+          child: const Scaffold(
+            body: PuntuacionesDisponiblesWidget(mapa: MapaTablero.mapa4),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('regla-simbolo-naranjaInferior')),
+          )
+          .data,
+      '1-3',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('regla-simbolo-naranjaSuperior')),
+          )
+          .data,
+      '4-6',
+    );
   });
 
   testWidgets('al completar la primera zona roja atenúa su primer premio', (

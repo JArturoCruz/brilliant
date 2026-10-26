@@ -51,6 +51,22 @@ void main() {
       expect(cubit.state.seleccionada, posicionesEsperadas.first);
       cubit.close();
     });
+
+    test('usa las seis posiciones iniciales correspondientes al mapa 4', () {
+      final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+      const posicionesEsperadas = [
+        Posicion(0, 4),
+        Posicion(2, 2),
+        Posicion(2, 5),
+        Posicion(3, 0),
+        Posicion(5, 4),
+        Posicion(6, 1),
+      ];
+
+      expect(cubit.state.valores.keys, posicionesEsperadas);
+      expect(cubit.state.seleccionada, posicionesEsperadas.first);
+      cubit.close();
+    });
   });
 
   group('ZonaInicialCubit - seleccionarCelda', () {

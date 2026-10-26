@@ -2,6 +2,13 @@ import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/region.dart';
+import 'package:brilliant/dominio/tipos/tipo_amarillo.dart';
+import 'package:brilliant/dominio/tipos/tipo_azul.dart';
+import 'package:brilliant/dominio/tipos/tipo_blanco.dart';
+import 'package:brilliant/dominio/tipos/tipo_morado.dart';
+import 'package:brilliant/dominio/tipos/tipo_naranja.dart';
+import 'package:brilliant/dominio/tipos/tipo_rojo.dart';
+import 'package:brilliant/dominio/tipos/tipo_verde.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -181,6 +188,19 @@ class _PuntuacionGrupo extends StatelessWidget {
   final bool compacto;
   final double escala;
 
+  String get simboloRegla {
+    final tipo = mapa.tipoDe(grupo.region);
+    if (tipo is TipoBlanco) return '=';
+    if (tipo is TipoNaranja) {
+      return '${tipo.numeroMinimo}-${tipo.numeroMaximo}';
+    }
+    if (tipo is TipoAzul) return '=';
+    if (tipo is TipoVerde) return '?';
+    if (tipo is TipoRojo || tipo is TipoAmarillo) return '≠';
+    if (tipo is TipoMorado) return 'XO';
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorTexto = grupo.color == Colors.white
@@ -194,12 +214,27 @@ class _PuntuacionGrupo extends StatelessWidget {
     final identificadorZona = Row(
       children: [
         Container(
-          width: 14 * escala,
-          height: 14 * escala,
+          key: ValueKey('regla-${grupo.region.name}'),
+          width: (compacto ? 24 : 20) * escala,
+          height: (compacto ? 19 : 20) * escala,
           decoration: BoxDecoration(
             color: grupo.color,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(color: Colors.white30),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            simboloRegla,
+            key: ValueKey('regla-simbolo-${grupo.region.name}'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: grupo.color.computeLuminance() > 0.5
+                  ? Colors.black.withAlpha(170)
+                  : Colors.white.withAlpha(190),
+              fontSize: (simboloRegla.length > 1 ? 7 : 10) * escala,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
           ),
         ),
         SizedBox(width: 4 * escala),
