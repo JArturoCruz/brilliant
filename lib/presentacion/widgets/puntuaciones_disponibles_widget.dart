@@ -6,9 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class PuntuacionesDisponiblesWidget extends StatelessWidget {
-  const PuntuacionesDisponiblesWidget({super.key, required this.mapa});
+  const PuntuacionesDisponiblesWidget({
+    super.key,
+    required this.mapa,
+    this.horizontal = false,
+  });
 
   final MapaTablero mapa;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
@@ -16,46 +21,83 @@ class PuntuacionesDisponiblesWidget extends StatelessWidget {
 
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, state) {
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black45,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade800),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Puntuaciones',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white70,
-                ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final escala = (constraints.maxWidth / 150)
+                .clamp(0.7, 1.0)
+                .toDouble();
+            final compacto = horizontal || constraints.maxWidth < 145;
+
+            return Container(
+              padding: EdgeInsets.all(8 * escala),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade800),
               ),
-              const SizedBox(height: 8),
-              Column(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final grupo in grupos)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: _PuntuacionGrupo(
-                        grupo: grupo,
-                        posicionesConsumidas:
-                            state.contadorCompletadasPorRegion[mapa
-                                .claveGrupoPuntuacion(grupo.region)] ??
-                            0,
-                        mapa: mapa,
-                      ),
+                  Text(
+                    'Puntuaciones',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14 * escala,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white70,
                     ),
+                  ),
+                  SizedBox(height: 8 * escala),
+                  if (horizontal)
+                    LayoutBuilder(
+                      builder: (context, rowConstraints) {
+                        const spacing = 4.0;
+                        final itemWidth =
+                            (rowConstraints.maxWidth - spacing * 2) / 3;
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: 4 * escala,
+                          children: [
+                            for (final grupo in grupos)
+                              SizedBox(
+                                width: itemWidth,
+                                child: _PuntuacionGrupo(
+                                  grupo: grupo,
+                                  posicionesConsumidas:
+                                      state.contadorCompletadasPorRegion[mapa
+                                          .claveGrupoPuntuacion(
+                                            grupo.region,
+                                          )] ??
+                                      0,
+                                  mapa: mapa,
+                                  compacto: true,
+                                  escala: escala,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    )
+                  else
+                    for (final grupo in grupos)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 3 * escala),
+                        child: _PuntuacionGrupo(
+                          grupo: grupo,
+                          posicionesConsumidas:
+                              state.contadorCompletadasPorRegion[mapa
+                                  .claveGrupoPuntuacion(grupo.region)] ??
+                              0,
+                          mapa: mapa,
+                          compacto: compacto,
+                          escala: escala,
+                        ),
+                      ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -129,11 +171,15 @@ class _PuntuacionGrupo extends StatelessWidget {
     required this.grupo,
     required this.posicionesConsumidas,
     required this.mapa,
+    required this.compacto,
+    required this.escala,
   });
 
   final _GrupoPuntuacion grupo;
   final int posicionesConsumidas;
   final MapaTablero mapa;
+  final bool compacto;
+  final double escala;
 
   @override
   Widget build(BuildContext context) {
@@ -145,37 +191,44 @@ class _PuntuacionGrupo extends StatelessWidget {
       (index) => mapa.puntosPorPosicion(grupo.region, index + 1),
     );
 
-    return Row(
+    final identificadorZona = Row(
       children: [
         Container(
-          width: 14,
-          height: 14,
+          width: 14 * escala,
+          height: 14 * escala,
           decoration: BoxDecoration(
             color: grupo.color,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(color: Colors.white30),
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4 * escala),
         Expanded(
           child: Tooltip(
             message: grupo.etiqueta,
             child: Text(
               grupo.etiqueta,
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              overflow: compacto ? TextOverflow.visible : TextOverflow.ellipsis,
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 9,
+                fontSize: 9 * escala,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 3),
+      ],
+    );
+    final puntos = Row(
+      mainAxisAlignment: compacto
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.end,
+      mainAxisSize: compacto ? MainAxisSize.max : MainAxisSize.min,
+      children: [
         for (var index = 0; index < puntuaciones.length; index++)
           Padding(
-            padding: const EdgeInsets.only(left: 2),
+            padding: EdgeInsets.only(left: 3 * escala),
             child: Text(
               '${puntuaciones[index]}',
               key: ValueKey('puntuacion-${grupo.region.name}-${index + 1}'),
@@ -183,7 +236,7 @@ class _PuntuacionGrupo extends StatelessWidget {
                 color: index < posicionesConsumidas
                     ? Colors.grey.shade700
                     : Colors.amberAccent,
-                fontSize: 11,
+                fontSize: 11 * escala,
                 fontWeight: FontWeight.bold,
                 decoration: index < posicionesConsumidas
                     ? TextDecoration.lineThrough
@@ -195,6 +248,25 @@ class _PuntuacionGrupo extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+
+    if (compacto) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          identificadorZona,
+          SizedBox(height: 1 * escala),
+          puntos,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: identificadorZona),
+        SizedBox(width: 3 * escala),
+        puntos,
       ],
     );
   }

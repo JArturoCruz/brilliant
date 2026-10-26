@@ -3,6 +3,7 @@ import 'package:brilliant/presentacion/pantalla_configuracion_inicial.dart';
 import 'package:brilliant/presentacion/pantalla_juego.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
 import 'package:brilliant/presentacion/widgets/boton_inicio.dart';
+import 'package:brilliant/presentacion/widgets/puntuaciones_disponibles_widget.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
 import 'package:brilliant/presentacion/widgets/tablero_widget.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,14 @@ void main() {
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+    final tableroRect = tester.getRect(find.byType(TableroWidget));
+    final puntuacionesRect = tester.getRect(
+      find.byType(PuntuacionesDisponiblesWidget),
+    );
+    expect(tableroRect.width, tableroRect.height);
+    expect(tableroRect.width, greaterThan(250));
+    expect(tableroRect.bottom, lessThan(puntuacionesRect.top));
+    expect(puntuacionesRect.right, lessThanOrEqualTo(320));
     expect(tester.takeException(), isNull);
   });
 
@@ -66,6 +75,22 @@ void main() {
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(SelectorNumerosZonaInicial), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);
+  });
+
+  testWidgets('el tablero aprovecha el espacio disponible en computadora', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PantallaJuego()));
+
+    final tableroRect = tester.getRect(find.byType(TableroWidget));
+    final puntuacionesRect = tester.getRect(
+      find.byType(PuntuacionesDisponiblesWidget),
+    );
+
+    expect(tableroRect.width, greaterThan(500));
+    expect(tableroRect.width, tableroRect.height);
+    expect(tableroRect.right, lessThan(puntuacionesRect.left));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('el botón Inicio empieza deshabilitado', (tester) async {

@@ -127,7 +127,11 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                             children: [
                               const InstruccionZonaInicial(),
                               const SizedBox(height: 16),
-                              _TableroConPuntuaciones(mapa: widget.mapa),
+                              _TableroConPuntuaciones(
+                                mapa: widget.mapa,
+                                altoDisponible: constraints.maxHeight - 100,
+                                enVertical: constraints.maxWidth < 600,
+                              ),
                               const SizedBox(height: 24),
                               _PanelPartida(tablero: tablero, compacto: true),
                             ],
@@ -146,18 +150,16 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                           flex: 3,
                           child: Center(
                             child: SingleChildScrollView(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 500,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const InstruccionZonaInicial(),
-                                    const SizedBox(height: 16),
-                                    _TableroConPuntuaciones(mapa: widget.mapa),
-                                  ],
-                                ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const InstruccionZonaInicial(),
+                                  const SizedBox(height: 16),
+                                  _TableroConPuntuaciones(
+                                    mapa: widget.mapa,
+                                    altoDisponible: constraints.maxHeight,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -178,22 +180,58 @@ class _PantallaJuegoState extends State<PantallaJuego> {
 }
 
 class _TableroConPuntuaciones extends StatelessWidget {
-  const _TableroConPuntuaciones({required this.mapa});
+  const _TableroConPuntuaciones({
+    required this.mapa,
+    required this.altoDisponible,
+    this.enVertical = false,
+  });
 
   final MapaTablero mapa;
+  final double altoDisponible;
+  final bool enVertical;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final anchoPanel = (constraints.maxWidth * 0.42)
-            .clamp(100.0, 190.0)
+        if (enVertical) {
+          final ladoTablero = constraints.maxWidth
+              .clamp(1.0, (altoDisponible * 0.72).clamp(120.0, 560.0))
+              .toDouble();
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox.square(
+                dimension: ladoTablero,
+                child: TableroWidget(mapa: mapa),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: constraints.maxWidth,
+                child: PuntuacionesDisponiblesWidget(
+                  mapa: mapa,
+                  horizontal: true,
+                ),
+              ),
+            ],
+          );
+        }
+
+        const espacioEntre = 8.0;
+        final anchoPanel = (constraints.maxWidth * 0.4)
+            .clamp(120.0, 220.0)
             .toDouble();
+        final anchoTablero = constraints.maxWidth - anchoPanel - espacioEntre;
+        final maximoPorAlto = (altoDisponible * 0.9).clamp(120.0, 720.0);
+        final ladoTablero = anchoTablero.clamp(1.0, maximoPorAlto);
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: TableroWidget(mapa: mapa)),
-            const SizedBox(width: 8),
+            SizedBox.square(
+              dimension: ladoTablero,
+              child: TableroWidget(mapa: mapa),
+            ),
+            const SizedBox(width: espacioEntre),
             SizedBox(
               width: anchoPanel,
               child: PuntuacionesDisponiblesWidget(mapa: mapa),
