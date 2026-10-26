@@ -36,7 +36,9 @@ void main() {
     expect(find.text('Brilliant'), findsOneWidget);
     expect(find.byType(TableroWidget), findsNothing);
 
-    await tester.tap(find.text('Inicio'));
+    final botonInicio = find.text('Inicio');
+    await tester.ensureVisible(botonInicio);
+    await tester.tap(botonInicio);
     await tester.pumpAndSettle();
 
     expect(find.byType(PantallaSeleccionMapa), findsOneWidget);
