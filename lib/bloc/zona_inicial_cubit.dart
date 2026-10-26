@@ -23,17 +23,22 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   })  : _validador = validador ?? const ValidadorEntradaZonaInicial(),
         _navegador = navegador ?? const NavegadorZonaInicial(),
         _validadorDeJugadas = ValidadorDeJugadas(mapa: mapa),
-        super(ZonaInicialState.inicial());
+        super(
+          ZonaInicialState.inicial(
+            posiciones: ZonaInicial.posicionesParaMapa(mapa),
+          ),
+        );
 
   final ValidadorEntradaZonaInicial _validador;
   final NavegadorZonaInicial _navegador;
   final ValidadorDeJugadas _validadorDeJugadas;
   final MapaTablero mapa;
+  List<Posicion> get _posiciones => ZonaInicial.posicionesParaMapa(mapa);
 
   /// Selecciona una celda de la ZonaInicial para colocarle un número.
   void seleccionarCelda(Posicion posicion) {
     if (state.iniciada) return;
-    if (!ZonaInicial.posiciones.contains(posicion)) return;
+    if (!_posiciones.contains(posicion)) return;
     emit(state.copyWith(seleccionada: posicion));
   }
 
@@ -42,7 +47,7 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   void moverSeleccion(int delta) {
     if (state.iniciada) return;
     final siguiente =
-        _navegador.siguiente(ZonaInicial.posiciones, state.seleccionada, delta);
+        _navegador.siguiente(_posiciones, state.seleccionada, delta);
     emit(state.copyWith(seleccionada: siguiente));
   }
 
@@ -50,7 +55,7 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   /// No hace nada si la posición no pertenece a la ZonaInicial.
   void asignarValor(Posicion posicion, int? valor) {
     if (state.iniciada) return;
-    if (!ZonaInicial.posiciones.contains(posicion)) return;
+    if (!_posiciones.contains(posicion)) return;
 
     final nuevosValores = Map<Posicion, int?>.from(state.valores)
       ..[posicion] = valor;
@@ -118,7 +123,7 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
 
   void _avanzarASiguienteVacia() {
     final vacia =
-        _navegador.siguienteVacia(ZonaInicial.posiciones, state.valores);
+        _navegador.siguienteVacia(_posiciones, state.valores);
     if (vacia != null) emit(state.copyWith(seleccionada: vacia));
     // Si no hay ninguna vacía, se conserva la selección actual.
   }

@@ -24,11 +24,14 @@ class ZonaInicialState {
     this.mensajeId = 0,
   });
 
-  factory ZonaInicialState.inicial() => ZonaInicialState(
-        valores: {for (final pos in ZonaInicial.posiciones) pos: null},
+  factory ZonaInicialState.inicial({
+    List<Posicion> posiciones = ZonaInicial.posiciones,
+  }) =>
+      ZonaInicialState(
+        valores: {for (final pos in posiciones) pos: null},
         esValida: false,
         // Arranca con la primera celda seleccionada para agilizar el llenado.
-        seleccionada: ZonaInicial.posiciones.first,
+        seleccionada: posiciones.first,
       );
 
   /// Números ya colocados en alguna celda de la zona.

@@ -1,3 +1,4 @@
+import 'mapa_tablero.dart';
 import 'posicion.dart';
 
 /// Zona especial de configuración inicial de la partida: 6 celdas fijas,
@@ -17,6 +18,30 @@ class ZonaInicial {
     Posicion(5, 2), // pertenece a verde2
     Posicion(6, 4), // pertenece a azul2
   ];
+
+  static List<Posicion> posicionesParaMapa(MapaTablero mapa) {
+    if (mapa.id == MapaTablero.mapa2.id) {
+      return const [
+        Posicion(0, 4),
+        Posicion(2, 0),
+        Posicion(3, 2),
+        Posicion(4, 5),
+        Posicion(5, 1),
+        Posicion(6, 4),
+      ];
+    }
+    if (mapa.id == MapaTablero.mapa3.id) {
+      return const [
+        Posicion(1, 2),
+        Posicion(1, 5),
+        Posicion(3, 3),
+        Posicion(4, 1),
+        Posicion(4, 6),
+        Posicion(6, 2),
+      ];
+    }
+    return posiciones;
+  }
 
   static const int cantidadCeldas = 6;
   static const Set<int> valoresRequeridos = {1, 2, 3, 4, 5, 6};

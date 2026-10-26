@@ -1,5 +1,6 @@
 import 'package:brilliant/bloc/mensajes_zona_inicial.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
+import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/posicion.dart';
 import 'package:brilliant/dominio/tablero.dart';
 import 'package:brilliant/dominio/zona_inicial.dart';
@@ -7,12 +8,47 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ZonaInicialCubit - estado inicial', () {
-    test('arranca sin valores, no válida, no iniciada, primera celda seleccionada', () {
-      final cubit = ZonaInicialCubit();
-      expect(cubit.state.esValida, isFalse);
-      expect(cubit.state.iniciada, isFalse);
-      expect(cubit.state.seleccionada, ZonaInicial.posiciones.first);
-      expect(cubit.state.valores.values.every((v) => v == null), isTrue);
+    test(
+      'arranca sin valores, no válida, no iniciada, primera celda seleccionada',
+      () {
+        final cubit = ZonaInicialCubit();
+        expect(cubit.state.esValida, isFalse);
+        expect(cubit.state.iniciada, isFalse);
+        expect(cubit.state.seleccionada, ZonaInicial.posiciones.first);
+        expect(cubit.state.valores.values.every((v) => v == null), isTrue);
+        cubit.close();
+      },
+    );
+
+    test('usa las seis posiciones iniciales correspondientes al mapa 2', () {
+      final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa2);
+      const posicionesEsperadas = [
+        Posicion(0, 4),
+        Posicion(2, 0),
+        Posicion(3, 2),
+        Posicion(4, 5),
+        Posicion(5, 1),
+        Posicion(6, 4),
+      ];
+
+      expect(cubit.state.valores.keys, posicionesEsperadas);
+      expect(cubit.state.seleccionada, posicionesEsperadas.first);
+      cubit.close();
+    });
+
+    test('usa las seis posiciones iniciales correspondientes al mapa 3', () {
+      final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa3);
+      const posicionesEsperadas = [
+        Posicion(1, 2),
+        Posicion(1, 5),
+        Posicion(3, 3),
+        Posicion(4, 1),
+        Posicion(4, 6),
+        Posicion(6, 2),
+      ];
+
+      expect(cubit.state.valores.keys, posicionesEsperadas);
+      expect(cubit.state.seleccionada, posicionesEsperadas.first);
       cubit.close();
     });
   });
@@ -29,7 +65,9 @@ void main() {
     test('ignora una celda que no pertenece a la ZonaInicial', () {
       final cubit = ZonaInicialCubit();
       final seleccionPrevia = cubit.state.seleccionada;
-      cubit.seleccionarCelda(const Posicion(6, 6)); // esquina amarilla, no es zona inicial
+      cubit.seleccionarCelda(
+        const Posicion(6, 6),
+      ); // esquina amarilla, no es zona inicial
       expect(cubit.state.seleccionada, seleccionPrevia);
       cubit.close();
     });
@@ -53,32 +91,42 @@ void main() {
   });
 
   group('ZonaInicialCubit - asignarASeleccionada', () {
-    test('coloca el número en la celda seleccionada y avanza a la siguiente vacía', () {
-      final cubit = ZonaInicialCubit();
-      final primera = ZonaInicial.posiciones.first;
-      final segunda = ZonaInicial.posiciones[1];
+    test(
+      'coloca el número en la celda seleccionada y avanza a la siguiente vacía',
+      () {
+        final cubit = ZonaInicialCubit();
+        final primera = ZonaInicial.posiciones.first;
+        final segunda = ZonaInicial.posiciones[1];
 
-      cubit.asignarASeleccionada(4);
+        cubit.asignarASeleccionada(4);
 
-      expect(cubit.state.valores[primera], 4);
-      expect(cubit.state.seleccionada, segunda);
-      cubit.close();
-    });
+        expect(cubit.state.valores[primera], 4);
+        expect(cubit.state.seleccionada, segunda);
+        cubit.close();
+      },
+    );
 
     test('si el número ya está en otra celda, no lo coloca y avisa', () {
       final cubit = ZonaInicialCubit();
       final primera = ZonaInicial.posiciones.first;
       final segunda = ZonaInicial.posiciones[1];
 
-      cubit.asignarASeleccionada(4); // va en 'primera', selección pasa a 'segunda'
+      cubit.asignarASeleccionada(
+        4,
+      ); // va en 'primera', selección pasa a 'segunda'
       final mensajeIdPrevio = cubit.state.mensajeId;
 
-      cubit.asignarASeleccionada(4); // 'segunda' seleccionada, pero el 4 ya está en 'primera'
+      cubit.asignarASeleccionada(
+        4,
+      ); // 'segunda' seleccionada, pero el 4 ya está en 'primera'
 
       expect(cubit.state.valores[segunda], isNull);
       expect(cubit.state.seleccionada, segunda); // no avanza al haber conflicto
       expect(cubit.state.mensajeId, mensajeIdPrevio + 1);
-      expect(cubit.state.mensaje, MensajesZonaInicial.numeroRepetido(4, primera));
+      expect(
+        cubit.state.mensaje,
+        MensajesZonaInicial.numeroRepetido(4, primera),
+      );
       cubit.close();
     });
 
@@ -152,10 +200,13 @@ void main() {
       cubit.aplicarATablero(tablero);
 
       expect(cubit.state.iniciada, isFalse);
-      expect(tablero.obtenerValor(
-        ZonaInicial.posiciones.first.fila,
-        ZonaInicial.posiciones.first.columna,
-      ), 1); // el valor sigue solo en el estado del cubit, no se copia al tablero
+      expect(
+        tablero.obtenerValor(
+          ZonaInicial.posiciones.first.fila,
+          ZonaInicial.posiciones.first.columna,
+        ),
+        1,
+      ); // el valor sigue solo en el estado del cubit, no se copia al tablero
       cubit.close();
     });
 
@@ -172,7 +223,10 @@ void main() {
       expect(cubit.state.iniciada, isTrue);
       expect(cubit.state.seleccionada, isNull);
       for (final entrada in valoresFinales.entries) {
-        expect(tablero.obtenerValor(entrada.key.fila, entrada.key.columna), entrada.value);
+        expect(
+          tablero.obtenerValor(entrada.key.fila, entrada.key.columna),
+          entrada.value,
+        );
       }
       cubit.close();
     });

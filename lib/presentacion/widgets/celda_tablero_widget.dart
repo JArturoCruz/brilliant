@@ -8,7 +8,6 @@ import '../../dominio/mapa_tablero.dart';
 import '../../dominio/posicion.dart';
 import '../../dominio/region.dart';
 import '../../dominio/topologia_tablero.dart';
-import '../../dominio/zona_inicial.dart';
 
 /// Una sola celda del tablero: su único trabajo es pintarse según su
 /// región y reaccionar al toque cuando pertenece a la ZonaInicial. No
@@ -42,7 +41,7 @@ class CeldaTableroWidget extends StatelessWidget {
         ? Colors.black
         : Colors.white;
 
-    final esInicial = ZonaInicial.posiciones.contains(posicion);
+    final esInicial = state.valores.containsKey(posicion);
     final seleccionada = state.seleccionada == posicion;
     final valorInicial = state.valores[posicion];
 
