@@ -363,11 +363,11 @@ void main() {
         ],
         [
           RegionTablero.amarilla,
-          RegionTablero.verde2,
+          RegionTablero.verde1,
           RegionTablero.azul1,
           RegionTablero.morada1,
           RegionTablero.azul2,
-          RegionTablero.verde3,
+          RegionTablero.verde1,
           RegionTablero.amarilla,
         ],
         [
@@ -383,7 +383,7 @@ void main() {
           RegionTablero.amarilla,
           RegionTablero.roja1,
           RegionTablero.azul1,
-          RegionTablero.verde4,
+          RegionTablero.verde1,
           RegionTablero.azul2,
           RegionTablero.roja2,
           RegionTablero.amarilla,
@@ -502,4 +502,117 @@ void main() {
       cubit.close();
     });
   });
+
+  group('puntuaciones por mapa', () {
+    test('mapa 1 asigna el podio indicado a cada zona', () {
+      _expectPuntuaciones(MapaTablero.mapa1, {
+        RegionTablero.azul1: [7, 5, 3],
+        RegionTablero.verde1: [4, 3, 2],
+        RegionTablero.roja1: [6, 4, 2],
+        RegionTablero.morada1: [6, 4, 2],
+        RegionTablero.morada2: [6, 4, 2],
+        RegionTablero.amarilla: [8, 6, 4],
+        RegionTablero.verde2: [4, 3, 2],
+        RegionTablero.azul2: [7, 5, 3],
+        RegionTablero.roja2: [6, 4, 2],
+      });
+    });
+
+    test('mapa 2 asigna el podio indicado e incluye una sola zona blanca', () {
+      _expectPuntuaciones(MapaTablero.mapa2, {
+        RegionTablero.amarilla: [6, 4, 2],
+        RegionTablero.morada1: [6, 4, 2],
+        RegionTablero.roja1: [6, 4, 2],
+        RegionTablero.azul2: [7, 5, 3],
+        RegionTablero.azul1: [7, 5, 3],
+        RegionTablero.verde2: [4, 3, 2],
+        RegionTablero.verde1: [4, 3, 2],
+        RegionTablero.roja2: [6, 4, 2],
+        RegionTablero.morada2: [6, 4, 2],
+        RegionTablero.blanca: [3, 2, 1],
+      });
+      expect(
+        TopologiaTablero.posicionesDe(
+          RegionTablero.blanca,
+          mapa: MapaTablero.mapa2,
+        ),
+        hasLength(2),
+      );
+    });
+
+    test('mapa 3 agrupa los morados y blancos discontinuos', () {
+      _expectPuntuaciones(MapaTablero.mapa3, {
+        RegionTablero.morada1: [7, 5, 3],
+        RegionTablero.roja1: [6, 4, 2],
+        RegionTablero.azul1: [7, 5, 3],
+        RegionTablero.morada2: [7, 5, 3],
+        RegionTablero.amarilla: [7, 5, 3],
+        RegionTablero.roja2: [6, 4, 2],
+        RegionTablero.verde1: [6, 5, 4],
+        RegionTablero.blanca: [8, 6, 4],
+      });
+      expect(
+        TopologiaTablero.posicionesDe(
+          RegionTablero.morada2,
+          mapa: MapaTablero.mapa3,
+        ),
+        hasLength(6),
+      );
+      expect(
+        TopologiaTablero.posicionesDe(
+          RegionTablero.blanca,
+          mapa: MapaTablero.mapa3,
+        ),
+        hasLength(5),
+      );
+    });
+
+    test('mapa 4 puntúa por zona y cuenta el verde como una región', () {
+      _expectPuntuaciones(MapaTablero.mapa4, {
+        RegionTablero.morada1: [7, 5, 3],
+        RegionTablero.azul1: [8, 6, 4],
+        RegionTablero.roja2: [6, 4, 2],
+        RegionTablero.naranjaInferior: [6, 4, 3],
+        RegionTablero.naranjaSuperior: [6, 4, 3],
+        RegionTablero.roja1: [6, 4, 2],
+        RegionTablero.amarilla: [8, 6, 4],
+        RegionTablero.verde1: [3, 2, 1],
+      });
+      expect(
+        TopologiaTablero.posicionesDe(
+          RegionTablero.verde1,
+          mapa: MapaTablero.mapa4,
+        ),
+        hasLength(4),
+      );
+    });
+
+    test('no otorga puntos a partir de la cuarta posición', () {
+      for (final mapa in [
+        MapaTablero.mapa1,
+        MapaTablero.mapa2,
+        MapaTablero.mapa3,
+        MapaTablero.mapa4,
+      ]) {
+        for (final region in mapa.puntuacionesPorRegion.keys) {
+          expect(mapa.puntosPorPosicion(region, 4), 0);
+        }
+      }
+    });
+  });
+}
+
+void _expectPuntuaciones(
+  MapaTablero mapa,
+  Map<RegionTablero, List<int>> esperadas,
+) {
+  for (final entrada in esperadas.entries) {
+    for (var posicion = 1; posicion <= entrada.value.length; posicion++) {
+      expect(
+        mapa.puntosPorPosicion(entrada.key, posicion),
+        entrada.value[posicion - 1],
+        reason: '${mapa.nombre} ${entrada.key}, posición $posicion',
+      );
+    }
+  }
 }

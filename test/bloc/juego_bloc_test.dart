@@ -3,6 +3,7 @@ import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/posicion.dart';
+import 'package:brilliant/dominio/region.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -205,9 +206,9 @@ void main() {
           destino: const Posicion(5, 1),
         );
 
-        expect(bloc.state.puntuacionTotal, 8);
-        expect(bloc.state.contadorCompletadasPorRegion['roja1'], 1);
-        expect(bloc.state.contadorCompletadasPorRegion['roja2'], isNull);
+        expect(bloc.state.puntuacionTotal, 6);
+        final grupoRojo = bloc.mapa.claveGrupoPuntuacion(RegionTablero.roja1);
+        expect(bloc.state.contadorCompletadasPorRegion[grupoRojo], 1);
 
         await completarZona(
           valoresIniciales: const {},
@@ -215,9 +216,8 @@ void main() {
           destino: const Posicion(6, 4),
         );
 
-        expect(bloc.state.puntuacionTotal, 16);
-        expect(bloc.state.contadorCompletadasPorRegion['roja1'], 1);
-        expect(bloc.state.contadorCompletadasPorRegion['roja2'], 1);
+        expect(bloc.state.puntuacionTotal, 10);
+        expect(bloc.state.contadorCompletadasPorRegion[grupoRojo], 2);
       },
     );
 

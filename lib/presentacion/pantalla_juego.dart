@@ -12,6 +12,7 @@ import 'mensajes/mensajes_zona_inicial_listener.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
 import 'widgets/instruccion_zona_inicial.dart';
+import 'widgets/puntuaciones_disponibles_widget.dart';
 import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
 
@@ -128,6 +129,8 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                             const SizedBox(height: 16),
                             TableroWidget(mapa: widget.mapa),
                             const SizedBox(height: 24),
+                            PuntuacionesDisponiblesWidget(mapa: widget.mapa),
+                            const SizedBox(height: 24),
                             _PanelPartida(tablero: tablero, compacto: true),
                           ],
                         ),
@@ -152,7 +155,25 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                 children: [
                                   const InstruccionZonaInicial(),
                                   const SizedBox(height: 16),
-                                  TableroWidget(mapa: widget.mapa),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: TableroWidget(
+                                          mapa: widget.mapa,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SizedBox(
+                                        width: 130,
+                                        child:
+                                            PuntuacionesDisponiblesWidget(
+                                              mapa: widget.mapa,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),

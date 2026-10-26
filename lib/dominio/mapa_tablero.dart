@@ -9,18 +9,28 @@ import 'tipos/tipo_naranja.dart';
 import 'tipos/tipo_rojo.dart';
 import 'tipos/tipo_verde.dart';
 
+const _puntos864 = {1: 8, 2: 6, 3: 4};
+const _puntos753 = {1: 7, 2: 5, 3: 3};
+const _puntos642 = {1: 6, 2: 4, 3: 2};
+const _puntos432 = {1: 4, 2: 3, 3: 2};
+const _puntos321 = {1: 3, 2: 2, 3: 1};
+const _puntos654 = {1: 6, 2: 5, 3: 4};
+const _puntos643 = {1: 6, 2: 4, 3: 3};
+
 class MapaTablero {
   const MapaTablero({
     required this.id,
     required this.nombre,
     required this.coordenadasPorRegion,
     required this.tiposPorRegion,
+    this.puntuacionesPorRegion = const {},
   });
 
   final int id;
   final String nombre;
   final Map<RegionTablero, List<Posicion>> coordenadasPorRegion;
   final Map<RegionTablero, Tipo> tiposPorRegion;
+  final Map<RegionTablero, Map<int, int>> puntuacionesPorRegion;
 
   Tipo tipoDe(RegionTablero region) {
     final tipo = tiposPorRegion[region];
@@ -29,6 +39,12 @@ class MapaTablero {
     }
     return tipo;
   }
+
+  int puntosPorPosicion(RegionTablero region, int posicion) =>
+      puntuacionesPorRegion[region]?[posicion] ?? 0;
+
+  String claveGrupoPuntuacion(RegionTablero region) =>
+      tipoDe(region).runtimeType.toString();
 
   static const MapaTablero mapa1 = MapaTablero(
     id: 1,
@@ -119,6 +135,17 @@ class MapaTablero {
       RegionTablero.roja2: TipoRojo(),
       RegionTablero.blanca: TipoBlanco(),
     },
+    puntuacionesPorRegion: {
+      RegionTablero.amarilla: _puntos864,
+      RegionTablero.verde1: _puntos432,
+      RegionTablero.verde2: _puntos432,
+      RegionTablero.azul1: _puntos753,
+      RegionTablero.azul2: _puntos753,
+      RegionTablero.morada1: _puntos642,
+      RegionTablero.morada2: _puntos642,
+      RegionTablero.roja1: _puntos642,
+      RegionTablero.roja2: _puntos642,
+    },
   );
 
   static const MapaTablero mapa2 = MapaTablero(
@@ -207,6 +234,18 @@ class MapaTablero {
       RegionTablero.roja1: TipoRojo(),
       RegionTablero.roja2: TipoRojo(),
       RegionTablero.blanca: TipoBlanco(),
+    },
+    puntuacionesPorRegion: {
+      RegionTablero.amarilla: _puntos642,
+      RegionTablero.verde1: _puntos432,
+      RegionTablero.verde2: _puntos432,
+      RegionTablero.azul1: _puntos753,
+      RegionTablero.azul2: _puntos753,
+      RegionTablero.morada1: _puntos642,
+      RegionTablero.morada2: _puntos642,
+      RegionTablero.roja1: _puntos642,
+      RegionTablero.roja2: _puntos642,
+      RegionTablero.blanca: _puntos321,
     },
   );
 
@@ -298,6 +337,16 @@ class MapaTablero {
       RegionTablero.roja2: TipoRojo(),
       RegionTablero.blanca: TipoBlanco(),
     },
+    puntuacionesPorRegion: {
+      RegionTablero.amarilla: _puntos753,
+      RegionTablero.verde1: _puntos654,
+      RegionTablero.azul1: _puntos753,
+      RegionTablero.morada1: _puntos753,
+      RegionTablero.morada2: _puntos753,
+      RegionTablero.roja1: _puntos642,
+      RegionTablero.roja2: _puntos642,
+      RegionTablero.blanca: _puntos864,
+    },
   );
 
   static const MapaTablero mapa4 = MapaTablero(
@@ -312,10 +361,15 @@ class MapaTablero {
         Posicion(5, 0),
         Posicion(5, 6),
       ],
-      RegionTablero.verde1: [Posicion(1, 3)],
-      RegionTablero.verde2: [Posicion(3, 1)],
-      RegionTablero.verde3: [Posicion(3, 5)],
-      RegionTablero.verde4: [Posicion(5, 3)],
+      RegionTablero.verde1: [
+        Posicion(1, 3),
+        Posicion(3, 1),
+        Posicion(3, 5),
+        Posicion(5, 3),
+      ],
+      RegionTablero.verde2: [],
+      RegionTablero.verde3: [],
+      RegionTablero.verde4: [],
       RegionTablero.azul1: [
         Posicion(1, 2),
         Posicion(3, 2),
@@ -393,6 +447,17 @@ class MapaTablero {
         numeroMinimo: 1,
         numeroMaximo: 3,
       ),
+    },
+    puntuacionesPorRegion: {
+      RegionTablero.amarilla: _puntos864,
+      RegionTablero.verde1: _puntos321,
+      RegionTablero.azul1: _puntos864,
+      RegionTablero.azul2: _puntos864,
+      RegionTablero.morada1: _puntos753,
+      RegionTablero.roja1: _puntos642,
+      RegionTablero.roja2: _puntos642,
+      RegionTablero.naranjaSuperior: _puntos643,
+      RegionTablero.naranjaInferior: _puntos643,
     },
   );
 }

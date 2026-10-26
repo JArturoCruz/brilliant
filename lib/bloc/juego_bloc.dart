@@ -2,7 +2,6 @@ import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/dado.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/tablero.dart';
-import 'package:brilliant/dominio/tipos/tipo.dart';
 import 'package:brilliant/dominio/validador_de_jugadas.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -293,13 +292,12 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       if (_esRegionCompleta(nuevoTablero, region)) {
         nuevasRegionesCompletadas.add(region);
 
-        final tipo = mapa.tipoDe(region);
-        final regionKey = region.name;
+        final regionKey = mapa.claveGrupoPuntuacion(region);
 
         int posicionActual = (nuevoContadorRegiones[regionKey] ?? 0) + 1;
         nuevoContadorRegiones[regionKey] = posicionActual;
 
-        int puntosZona = tipo.puntosPorPosicion(posicionActual);
+        int puntosZona = mapa.puntosPorPosicion(region, posicionActual);
         puntosNuevos += puntosZona;
 
         nuevoHistorial.insert(
@@ -430,17 +428,10 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   bool _validarReglaDeRegion(int fDestino, int cDestino, int numeroColocar) {
     final tablero = TableroJuego(
       state.tablero
-          .map(
-            (fila) => fila.map((casilla) => casilla.valorActual).toList(),
-          )
+          .map((fila) => fila.map((casilla) => casilla.valorActual).toList())
           .toList(),
     );
-    return _validador.puedeAsignar(
-      tablero,
-      fDestino,
-      cDestino,
-      numeroColocar,
-    );
+    return _validador.puedeAsignar(tablero, fDestino, cDestino, numeroColocar);
   }
 
   bool _tieneColocacionValida(
