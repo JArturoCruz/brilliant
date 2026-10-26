@@ -216,8 +216,14 @@ void main() {
           destino: const Posicion(6, 4),
         );
 
-        expect(bloc.state.puntuacionTotal, 10);
-        expect(bloc.state.contadorCompletadasPorRegion[grupoRojo], 2);
+        expect(bloc.state.puntuacionTotal, 12);
+        expect(bloc.state.contadorCompletadasPorRegion[grupoRojo], 1);
+        expect(
+          bloc.state.contadorCompletadasPorRegion[
+            bloc.mapa.claveGrupoPuntuacion(RegionTablero.roja2)
+          ],
+          1,
+        );
       },
     );
 

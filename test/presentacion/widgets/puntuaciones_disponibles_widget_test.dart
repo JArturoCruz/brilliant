@@ -11,7 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('muestra una celda por color y sus tres puntuaciones activas', (
+  testWidgets('muestra cada zona y sus tres puntuaciones activas', (
     tester,
   ) async {
     final juegoBloc = JuegoBloc(mapa: MapaTablero.mapa1);
@@ -33,7 +33,9 @@ void main() {
       ),
     );
 
-    expect(find.byType(Tooltip), findsNWidgets(5));
+    expect(find.byType(Tooltip), findsNWidgets(9));
+    expect(find.text('Verde izq.'), findsOneWidget);
+    expect(find.text('Verde der.'), findsOneWidget);
     for (var puesto = 1; puesto <= 3; puesto++) {
       final premio = tester.widget<Text>(
         find.byKey(ValueKey('puntuacion-roja1-$puesto')),
@@ -77,6 +79,12 @@ void main() {
     expect(primerPremio.style!.decoration, TextDecoration.lineThrough);
     expect(segundoPremio.style!.color, Colors.amberAccent);
     expect(segundoPremio.style!.decoration, TextDecoration.none);
+
+    final primerPremioZonaRojaDerecha = tester.widget<Text>(
+      find.byKey(const ValueKey('puntuacion-roja2-1')),
+    );
+    expect(primerPremioZonaRojaDerecha.style!.color, Colors.amberAccent);
+    expect(primerPremioZonaRojaDerecha.style!.decoration, TextDecoration.none);
   });
 }
 

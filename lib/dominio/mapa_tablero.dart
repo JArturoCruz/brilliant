@@ -43,8 +43,7 @@ class MapaTablero {
   int puntosPorPosicion(RegionTablero region, int posicion) =>
       puntuacionesPorRegion[region]?[posicion] ?? 0;
 
-  String claveGrupoPuntuacion(RegionTablero region) =>
-      tipoDe(region).runtimeType.toString();
+  String claveGrupoPuntuacion(RegionTablero region) => region.name;
 
   static const MapaTablero mapa1 = MapaTablero(
     id: 1,

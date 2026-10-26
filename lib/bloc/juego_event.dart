@@ -1,6 +1,8 @@
 import '../../dominio/posicion.dart';
 
-abstract class JuegoEvent {}
+abstract class JuegoEvent {
+  const JuegoEvent();
+}
 
 class IniciarTurno extends JuegoEvent {
   final Map<Posicion, int> valoresIniciales;
@@ -11,9 +13,9 @@ class SeleccionarNumeroAncla extends JuegoEvent {
   final int numeroElegido;
   final int numeroParaColocar;
   final int indiceDado;
-  
+
   SeleccionarNumeroAncla({
-    required this.numeroElegido, 
+    required this.numeroElegido,
     required this.numeroParaColocar,
     required this.indiceDado,
   });
@@ -22,17 +24,19 @@ class SeleccionarNumeroAncla extends JuegoEvent {
 class SeleccionarCasillaAncla extends JuegoEvent {
   final int fila;
   final int columna;
-  SeleccionarCasillaAncla(this.fila, this.columna);
+  const SeleccionarCasillaAncla(this.fila, this.columna);
 }
 
 class ColocarNumero extends JuegoEvent {
   final int fila;
   final int columna;
-  ColocarNumero(this.fila, this.columna);
+  const ColocarNumero(this.fila, this.columna);
 }
 
 class CancelarSeleccionAncla extends JuegoEvent {}
+
 class ConfirmarJugada extends JuegoEvent {}
+
 class CancelarConfirmacion extends JuegoEvent {}
 
 // NUEVO EVENTO
