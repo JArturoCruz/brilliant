@@ -12,8 +12,9 @@ import 'juego_state.dart';
 import '../../dominio/topologia_tablero.dart';
 
 class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
-  JuegoBloc({this.mapa = MapaTablero.mapa1})
+  JuegoBloc({this.mapa = MapaTablero.mapa1, int Function()? tirarDado})
     : _validador = ValidadorDeJugadas(mapa: mapa),
+      _tirarDado = tirarDado ?? Dado.tirar,
       super(_estadoInicial()) {
     on<IniciarTurno>(_onIniciarTurno);
     on<SeleccionarNumeroAncla>(_onSeleccionarNumeroAncla);
@@ -27,6 +28,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
 
   final MapaTablero mapa;
   final ValidadorDeJugadas _validador;
+  final int Function() _tirarDado;
 
   static JuegoState _estadoInicial() {
     List<List<Casilla>> tableroInicial = List.generate(
@@ -65,12 +67,19 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       return;
     }
 
-    final dado1 = Dado.tirar();
-    final dado2 = Dado.tirar();
+    final dado1 = _tirarDado();
+    final dado2 = _tirarDado();
 
     // Registramos la tirada en el historial
     final nuevoHistorial = List<String>.from(state.historial);
     nuevoHistorial.insert(0, '🎲 Dados tirados: [$dado1] y [$dado2]');
+    final puedeJugar = _hayJugadaValida(nuevoTablero, dado1, dado2);
+    if (!puedeJugar) {
+      nuevoHistorial.insert(
+        0,
+        '⏭️ No hay jugadas válidas con esta tirada; el turno se saltó automáticamente.',
+      );
+    }
 
     emit(
       state.copyWith(
@@ -78,11 +87,14 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
         dado1: dado1,
         dado2: dado2,
         indiceDadoAncla: -1,
-        fase: FaseTurno.seleccionandoAncla,
+        fase: puedeJugar
+            ? FaseTurno.seleccionandoAncla
+            : FaseTurno.turnoTerminado,
         filaProvisional: null,
         columnaProvisional: null,
         filaAncla: null,
         columnaAncla: null,
+        turnoSaltadoAutomaticamente: !puedeJugar,
         historial: nuevoHistorial,
       ),
     );
@@ -311,6 +323,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       state.copyWith(
         tablero: nuevoTablero,
         fase: FaseTurno.turnoTerminado,
+        turnoSaltadoAutomaticamente: false,
         filaProvisional: null,
         columnaProvisional: null,
         filaAncla: null,
@@ -401,6 +414,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       state.copyWith(
         tablero: nuevoTablero,
         fase: FaseTurno.turnoTerminado,
+        turnoSaltadoAutomaticamente: false,
         filaProvisional: null,
         columnaProvisional: null,
         filaAncla: null,
@@ -426,15 +440,46 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
   }
 
   bool _validarReglaDeRegion(int fDestino, int cDestino, int numeroColocar) {
-    final tablero = TableroJuego(
-      state.tablero
+    return _validarReglaDeRegionEn(
+      state.tablero,
+      fDestino,
+      cDestino,
+      numeroColocar,
+    );
+  }
+
+  bool _validarReglaDeRegionEn(
+    List<List<Casilla>> tablero,
+    int fDestino,
+    int cDestino,
+    int numeroColocar,
+  ) {
+    final tableroJuego = TableroJuego(
+      tablero
           .map((fila) => fila.map((casilla) => casilla.valorActual).toList())
           .toList(),
     );
-    return _validador.puedeAsignar(tablero, fDestino, cDestino, numeroColocar);
+    return _validador.puedeAsignar(
+      tableroJuego,
+      fDestino,
+      cDestino,
+      numeroColocar,
+    );
   }
 
   bool _tieneColocacionValida(
+    int filaAncla,
+    int columnaAncla,
+    int numeroColocar,
+  ) => _tieneColocacionValidaEn(
+    state.tablero,
+    filaAncla,
+    columnaAncla,
+    numeroColocar,
+  );
+
+  bool _tieneColocacionValidaEn(
+    List<List<Casilla>> tablero,
     int filaAncla,
     int columnaAncla,
     int numeroColocar,
@@ -457,12 +502,38 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
         continue;
       }
 
-      if (state.tablero[filaDestino][columnaDestino].valorActual == null &&
-          _validarReglaDeRegion(filaDestino, columnaDestino, numeroColocar)) {
+      if (tablero[filaDestino][columnaDestino].valorActual == null &&
+          _validarReglaDeRegionEn(
+            tablero,
+            filaDestino,
+            columnaDestino,
+            numeroColocar,
+          )) {
         return true;
       }
     }
 
+    return false;
+  }
+
+  bool _hayJugadaValida(
+    List<List<Casilla>> tablero,
+    int dado1,
+    int dado2,
+  ) {
+    for (final fila in tablero) {
+      for (final ancla in fila) {
+        final valor = ancla.valorActual;
+        if (valor == dado1 &&
+            _tieneColocacionValidaEn(tablero, ancla.fila, ancla.columna, dado2)) {
+          return true;
+        }
+        if (valor == dado2 &&
+            _tieneColocacionValidaEn(tablero, ancla.fila, ancla.columna, dado1)) {
+          return true;
+        }
+      }
+    }
     return false;
   }
 }

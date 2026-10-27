@@ -11,7 +11,9 @@ void main() {
     late JuegoBloc bloc;
 
     setUp(() {
-      bloc = JuegoBloc();
+      var indiceDado = 0;
+      const dados = [2, 5];
+      bloc = JuegoBloc(tirarDado: () => dados[indiceDado++ % dados.length]);
     });
 
     tearDown(() {
@@ -39,7 +41,7 @@ void main() {
       () async {
         const posicionInicial = Posicion(0, 0);
 
-        bloc.add(IniciarTurno({posicionInicial: 4}));
+        bloc.add(IniciarTurno({posicionInicial: 2}));
         await bloc.stream.firstWhere(
           (state) => state.fase == FaseTurno.seleccionandoAncla,
         );
@@ -47,10 +49,56 @@ void main() {
         expect(bloc.state.fase, FaseTurno.seleccionandoAncla);
         expect(bloc.state.dado1, isNotNull);
         expect(bloc.state.dado2, isNotNull);
-        expect(bloc.state.tablero[0][0].valorActual, 4);
+        expect(bloc.state.tablero[0][0].valorActual, 2);
         expect(bloc.state.historial.first, contains('Dados tirados'));
       },
     );
+
+    test(
+      'salta el turno y avisa si ninguno de los dados permite jugar',
+      () async {
+        var siguienteDado = 2;
+        final blocSinJugada = JuegoBloc(tirarDado: () => siguienteDado++);
+        addTearDown(blocSinJugada.close);
+        const casillaVacia = Posicion(0, 2);
+        final valoresIniciales = {
+          for (var fila = 0; fila < 7; fila++)
+            for (var columna = 0; columna < 7; columna++)
+              if (Posicion(fila, columna) != casillaVacia)
+                Posicion(fila, columna): 1,
+          const Posicion(0, 1): 2,
+          const Posicion(0, 3): 3,
+        };
+
+        blocSinJugada.add(IniciarTurno(valoresIniciales));
+        await blocSinJugada.stream.firstWhere(
+          (state) => state.fase == FaseTurno.turnoTerminado,
+        );
+
+        expect(blocSinJugada.state.dado1, 2);
+        expect(blocSinJugada.state.dado2, 3);
+        expect(blocSinJugada.state.turnoSaltadoAutomaticamente, isTrue);
+        expect(
+          blocSinJugada.state.historial.first,
+          contains('automáticamente'),
+        );
+        expect(blocSinJugada.state.tablero[0][2].valorActual, isNull);
+      },
+    );
+
+    test('continúa a selección cuando existe una jugada legal', () async {
+      var siguienteDado = 1;
+      final blocConJugada = JuegoBloc(tirarDado: () => siguienteDado++);
+      addTearDown(blocConJugada.close);
+
+      blocConJugada.add(IniciarTurno({const Posicion(0, 0): 1}));
+      await blocConJugada.stream.firstWhere(
+        (state) => state.fase == FaseTurno.seleccionandoAncla,
+      );
+
+      expect(blocConJugada.state.turnoSaltadoAutomaticamente, isFalse);
+      expect(blocConJugada.state.historial.first, contains('Dados tirados'));
+    });
 
     test('no tira los dados cuando el tablero ya está completo', () async {
       final valoresIniciales = {
@@ -73,14 +121,14 @@ void main() {
     test(
       'seleccionar un número y una casilla activa la fase de colocación',
       () async {
-        bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+        bloc.add(IniciarTurno({const Posicion(0, 0): 2}));
         await bloc.stream.firstWhere(
           (state) => state.fase == FaseTurno.seleccionandoAncla,
         );
 
         bloc.add(
           SeleccionarNumeroAncla(
-            numeroElegido: 3,
+            numeroElegido: 2,
             numeroParaColocar: 5,
             indiceDado: 1,
           ),
@@ -89,7 +137,7 @@ void main() {
           (state) => state.fase == FaseTurno.seleccionandoCasilla,
         );
 
-        expect(bloc.state.numeroAncla, 3);
+        expect(bloc.state.numeroAncla, 2);
         expect(bloc.state.numeroColocar, 5);
         expect(bloc.state.indiceDadoAncla, 1);
         expect(bloc.state.fase, FaseTurno.seleccionandoCasilla);
@@ -219,9 +267,8 @@ void main() {
         expect(bloc.state.puntuacionTotal, 12);
         expect(bloc.state.contadorCompletadasPorRegion[grupoRojo], 1);
         expect(
-          bloc.state.contadorCompletadasPorRegion[
-            bloc.mapa.claveGrupoPuntuacion(RegionTablero.roja2)
-          ],
+          bloc.state.contadorCompletadasPorRegion[bloc.mapa
+              .claveGrupoPuntuacion(RegionTablero.roja2)],
           1,
         );
       },
@@ -230,14 +277,14 @@ void main() {
     test(
       'colocar y confirmar una jugada actualiza el tablero y termina el turno',
       () async {
-        bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+        bloc.add(IniciarTurno({const Posicion(0, 0): 2}));
         await bloc.stream.firstWhere(
           (state) => state.fase == FaseTurno.seleccionandoAncla,
         );
 
         bloc.add(
           SeleccionarNumeroAncla(
-            numeroElegido: 3,
+            numeroElegido: 2,
             numeroParaColocar: 5,
             indiceDado: 0,
           ),
@@ -294,15 +341,15 @@ void main() {
     test(
       'cancelar la confirmación devuelve la jugada a la fase de colocación',
       () async {
-        bloc.add(IniciarTurno({const Posicion(0, 0): 3}));
+        bloc.add(IniciarTurno({const Posicion(0, 0): 2}));
         await bloc.stream.firstWhere(
           (state) => state.fase == FaseTurno.seleccionandoAncla,
         );
 
         bloc.add(
           SeleccionarNumeroAncla(
-            numeroElegido: 3,
-            numeroParaColocar: 2,
+            numeroElegido: 2,
+            numeroParaColocar: 5,
             indiceDado: 2,
           ),
         );

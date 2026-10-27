@@ -34,7 +34,9 @@ class PanelDados extends StatelessWidget {
         } else if (state.fase == FaseTurno.confirmandoJugada) {
           mensaje = '¿Confirmas colocar el ${state.numeroColocar}?';
         } else if (state.fase == FaseTurno.turnoTerminado) {
-          mensaje = '¡Turno terminado!';
+          mensaje = state.turnoSaltadoAutomaticamente
+              ? 'No hay jugadas válidas con esta tirada. Turno saltado automáticamente.'
+              : '¡Turno terminado!';
         }
 
         bool permitirCambioDado =
