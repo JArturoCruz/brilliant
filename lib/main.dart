@@ -1,3 +1,4 @@
+import 'package:brilliant/datos/autenticacion/auth_client.dart';
 import 'package:brilliant/presentacion/pantalla_inicio.dart';
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,7 @@ class BrilliantApp extends StatelessWidget {
       title: 'Brilliant',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
-      home: const PantallaInicio(),
+      home: PantallaInicio(authGateway: AuthClient.shared),
     );
   }
 }

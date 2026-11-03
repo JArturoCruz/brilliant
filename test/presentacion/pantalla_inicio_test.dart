@@ -12,6 +12,7 @@ void main() {
 
     expect(find.text('Brilliant'), findsOneWidget);
     expect(find.text('Instrucciones'), findsOneWidget);
+    expect(find.text('Cuenta'), findsOneWidget);
     expect(find.text('Cómo jugar'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Inicio'), findsOneWidget);
     expect(find.byType(PantallaSeleccionMapa), findsNothing);

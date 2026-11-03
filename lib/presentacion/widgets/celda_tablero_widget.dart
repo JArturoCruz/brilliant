@@ -53,30 +53,49 @@ class CeldaTableroWidget extends StatelessWidget {
         final esProvisionalActual = juegoState.fase == FaseTurno.confirmandoJugada &&
             juegoState.filaProvisional == posicion.fila &&
             juegoState.columnaProvisional == posicion.columna;
+        final esAnclaSeleccionada =
+            juegoState.fase == FaseTurno.colocandoNumero &&
+            juegoState.filaAncla == posicion.fila &&
+            juegoState.columnaAncla == posicion.columna;
 
         // 1. LÓGICA DE CONTENIDO (¿Qué número mostramos?)
         Widget? contenido;
 
         // Si está en modo provisional, mostramos el número del dado a colocar con un estilo translúcido
         if (esProvisionalActual && juegoState.numeroColocar != null) {
-          contenido = _texto(
-            '${juegoState.numeroColocar}',
-            colorTexto.withAlpha(180),
+          contenido = KeyedSubtree(
+            key: ValueKey('provisional-${juegoState.numeroColocar}'),
+            child: _texto(
+              '${juegoState.numeroColocar}',
+              colorTexto.withAlpha(180),
+            ),
           );
         }
         // Si el juego ya inició y la casilla tiene valor, mostramos el número oficial
         else if (state.iniciada && casillaJuego?.valorActual != null) {
-          contenido = _texto('${casillaJuego!.valorActual}', colorTexto);
+          contenido = KeyedSubtree(
+            key: ValueKey('confirmado-${casillaJuego!.valorActual}'),
+            child: _texto('${casillaJuego!.valorActual}', colorTexto),
+          );
         } 
         // Si no ha iniciado, mantenemos tu lógica de la configuración inicial
         else if (valorInicial != null) {
-          contenido = _texto('$valorInicial', colorTexto);
+          contenido = KeyedSubtree(
+            key: ValueKey('inicial-$valorInicial'),
+            child: _texto('$valorInicial', colorTexto),
+          );
         } else if (esInicial) {
-          contenido = _texto('?', colorTexto.withAlpha(180));
+          contenido = KeyedSubtree(
+            key: const ValueKey('casilla-inicial-vacia'),
+            child: _texto('?', colorTexto.withAlpha(180)),
+          );
         } else if (casillaJuego?.valorActual != null) {
-          contenido = _texto(
-            '${casillaJuego!.valorActual}',
-            colorTexto.withAlpha(60),
+          contenido = KeyedSubtree(
+            key: ValueKey('numero-previo-${casillaJuego!.valorActual}'),
+            child: _texto(
+              '${casillaJuego!.valorActual}',
+              colorTexto.withAlpha(60),
+            ),
           );
         }
 
@@ -137,16 +156,40 @@ class CeldaTableroWidget extends StatelessWidget {
             onTap: esInicial && !state.iniciada
                 ? () => context.read<ZonaInicialCubit>().seleccionarCelda(posicion)
                 : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10),
-                border: bordeActual,
-                boxShadow: sombraActual,
+            child: AnimatedScale(
+              scale: esAnclaSeleccionada
+                  ? 1.12
+                  : casillaJuego?.iluminacion ==
+                          EstadoIluminacion.posibleColocacion
+                      ? 1.035
+                      : 1,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutBack,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOut,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(10),
+                  border: bordeActual,
+                  boxShadow: sombraActual,
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
+                    );
+                  },
+                  child:
+                      contenido ??
+                      const SizedBox.shrink(key: ValueKey('sin-numero')),
+                ),
               ),
-              child: contenido,
             ),
           ),
         );
@@ -157,15 +200,25 @@ class CeldaTableroWidget extends StatelessWidget {
   Widget _texto(String s, Color c) => Padding(
         padding: const EdgeInsets.all(4),
         child: FittedBox(
-          child: Text(
-            s,
-            style: TextStyle(
-              color: c,
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-              shadows: const [Shadow(color: Colors.black38, blurRadius: 3)],
-            ),
-          ),
+          child: _TextoCasilla(texto: s, color: c),
         ),
       );
+}
+
+class _TextoCasilla extends StatelessWidget {
+  const _TextoCasilla({required this.texto, required this.color});
+
+  final String texto;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    texto,
+    style: TextStyle(
+      color: color,
+      fontSize: 30,
+      fontWeight: FontWeight.bold,
+      shadows: const [Shadow(color: Colors.black38, blurRadius: 3)],
+    ),
+  );
 }

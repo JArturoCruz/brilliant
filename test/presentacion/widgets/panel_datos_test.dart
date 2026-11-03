@@ -8,6 +8,41 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('los dados usan animación de giro al lanzarse', (tester) async {
+    var siguienteDado = 1;
+    final bloc = JuegoBloc(tirarDado: () => siguienteDado++);
+    addTearDown(bloc.close);
+
+    bloc.add(IniciarTurno({const Posicion(0, 0): 1}));
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.seleccionandoAncla,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(value: bloc, child: const PanelDados()),
+        ),
+      ),
+    );
+
+    for (final dadoKey in const ['dado-1', 'dado-2']) {
+      final dado = find.byKey(ValueKey(dadoKey));
+      expect(
+        find.descendant(of: dado, matching: find.byType(RotationTransition)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: dado, matching: find.byType(ScaleTransition)),
+        findsOneWidget,
+      );
+    }
+
+    await tester.pump(const Duration(milliseconds: 520));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('avisa cuando el turno se salta automáticamente', (tester) async {
     var siguienteDado = 2;
     final bloc = JuegoBloc(tirarDado: () => siguienteDado++);

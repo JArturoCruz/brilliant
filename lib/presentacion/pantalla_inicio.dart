@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../datos/autenticacion/auth_client.dart';
+import 'pantalla_cuenta.dart';
 import 'pantalla_instrucciones.dart';
 import 'seleccion_mapa/pantalla_seleccion_mapa.dart';
 
 class PantallaInicio extends StatelessWidget {
-  const PantallaInicio({super.key});
+  const PantallaInicio({this.authGateway, super.key});
+
+  final AuthGateway? authGateway;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +52,24 @@ class PantallaInicio extends StatelessWidget {
                         },
                         icon: const Icon(Icons.menu_book_outlined),
                         label: const Text('Instrucciones'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PantallaCuenta(
+                                authGateway:
+                                    authGateway ?? AuthClient.shared,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.person_outline),
+                        label: const Text('Cuenta'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),

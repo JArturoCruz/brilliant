@@ -16,7 +16,6 @@ class PanelDados extends StatelessWidget {
             '¡Tablero completo! La partida ha terminado.',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
-            
           );
         }
 
@@ -56,7 +55,9 @@ class PanelDados extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _BotonDado(
+                  key: const ValueKey('dado-1'),
                   valor: state.dado1!,
+                  rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
                   onTap: permitirCambioDado
@@ -71,7 +72,9 @@ class PanelDados extends StatelessWidget {
                 ),
                 const SizedBox(width: 32),
                 _BotonDado(
+                  key: const ValueKey('dado-2'),
                   valor: state.dado2!,
+                  rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
                   onTap: permitirCambioDado
@@ -129,18 +132,75 @@ class PanelDados extends StatelessWidget {
   }
 }
 
-class _BotonDado extends StatelessWidget {
-  final int valor;
-  final bool esAncla;
-  final bool esColocar;
-  final VoidCallback? onTap;
-
+class _BotonDado extends StatefulWidget {
   const _BotonDado({
+    super.key,
     required this.valor,
+    required this.rollId,
     this.esAncla = false,
     this.esColocar = false,
     this.onTap,
   });
+
+  final int valor;
+  final bool esAncla;
+  final bool esColocar;
+  final int rollId;
+  final VoidCallback? onTap;
+
+  @override
+  State<_BotonDado> createState() => _BotonDadoState();
+}
+
+class _BotonDadoState extends State<_BotonDado>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _rotacion;
+  late final Animation<double> _rebote;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _rotacion = Tween<double>(
+      begin: -0.22,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    _rebote = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.65,
+          end: 1.18,
+        ).chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 55,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.18,
+          end: 1,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 45,
+      ),
+    ]).animate(_controller);
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BotonDado oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rollId != oldWidget.rollId) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,39 +208,55 @@ class _BotonDado extends StatelessWidget {
     Color colorBorde = Colors.deepPurple;
     Color colorTexto = Colors.deepPurple;
 
-    if (esAncla) {
+    if (widget.esAncla) {
       colorFondo = Colors.yellow.shade100;
       colorBorde = Colors.orange;
       colorTexto = Colors.orange.shade800;
-    } else if (esColocar) {
+    } else if (widget.esColocar) {
       colorFondo = Colors.green.shade100;
       colorBorde = Colors.green.shade700;
       colorTexto = Colors.green.shade800;
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: colorFondo,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorBorde,
-            width: (esAncla || esColocar) ? 4 : 2,
+    return AnimatedBuilder(
+      animation: _controller,
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: colorFondo,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorBorde,
+              width: (widget.esAncla || widget.esColocar) ? 4 : 2,
+            ),
+            boxShadow: [
+              if (widget.esAncla || widget.esColocar)
+                BoxShadow(
+                  color: colorBorde.withAlpha(100),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.valor.toString(),
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: colorTexto,
+            ),
           ),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          valor.toString(),
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: colorTexto,
-          ),
-        ),
+      ),
+      builder: (context, child) => RotationTransition(
+        turns: _rotacion,
+        child: ScaleTransition(scale: _rebote, child: child),
       ),
     );
   }
