@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import '../datos/autenticacion/auth_client.dart';
 
 class PantallaCuenta extends StatefulWidget {
-  const PantallaCuenta({required this.authGateway, super.key});
+  const PantallaCuenta({
+    required this.authGateway,
+    this.closeOnAuthentication = false,
+    super.key,
+  });
 
   final AuthGateway authGateway;
+  final bool closeOnAuthentication;
 
   @override
   State<PantallaCuenta> createState() => _PantallaCuentaState();
@@ -64,6 +69,9 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
       if (mounted) {
         setState(() => _user = user);
         _passwordController.clear();
+        if (widget.closeOnAuthentication) {
+          Navigator.of(context).pop();
+        }
       }
     } on AuthApiException catch (error) {
       if (mounted) _showMessage(error.message);
@@ -204,12 +212,17 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.name],
               decoration: const InputDecoration(
-                labelText: 'Nombre',
+                labelText: 'Nombre de usuario',
+                helperText: 'Debe ser único; otras personas no pueden usarlo.',
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
-                if (_isRegistering && (value?.trim().length ?? 0) < 2) {
-                  return 'Ingresa tu nombre.';
+                final name = value?.trim() ?? '';
+                if (_isRegistering && name.length < 2) {
+                  return 'Ingresa un nombre de usuario de al menos 2 caracteres.';
+                }
+                if (_isRegistering && name.length > 32) {
+                  return 'El nombre de usuario no puede superar 32 caracteres.';
                 }
                 return null;
               },
@@ -290,6 +303,13 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
+        Text(
+          _user!.name,
+          key: const Key('account-user-name'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 8),
         Text(_user!.email, textAlign: TextAlign.center),
         const SizedBox(height: 24),
         FilledButton.tonal(

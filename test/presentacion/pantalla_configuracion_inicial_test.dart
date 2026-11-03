@@ -1,4 +1,5 @@
 import 'package:brilliant/main.dart' as app;
+import 'package:brilliant/datos/autenticacion/auth_client.dart';
 import 'package:brilliant/presentacion/pantalla_configuracion_inicial.dart';
 import 'package:brilliant/presentacion/pantalla_juego.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
@@ -8,6 +9,38 @@ import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dar
 import 'package:brilliant/presentacion/widgets/tablero_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _AuthenticatedGateway implements AuthGateway {
+  const _AuthenticatedGateway();
+
+  static const _user = AuthUser(
+    id: 'user-1',
+    name: 'Player One',
+    email: 'player@example.com',
+  );
+
+  @override
+  Future<AuthUser> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async => _user;
+
+  @override
+  Future<AuthUser> signIn({
+    required String email,
+    required String password,
+  }) async => _user;
+
+  @override
+  Future<AuthUser?> currentUser() async => _user;
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteAccount(String password) async {}
+}
 
 void main() {
   setUp(() {
@@ -30,13 +63,15 @@ void main() {
     binding.window.physicalSizeTestValue = const Size(320, 740);
     binding.window.devicePixelRatioTestValue = 1;
 
-    await tester.pumpWidget(const app.BrilliantApp());
+    await tester.pumpWidget(
+      const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Brilliant'), findsOneWidget);
     expect(find.byType(TableroWidget), findsNothing);
 
-    final botonInicio = find.text('Inicio');
+    final botonInicio = find.text('Jugar');
     await tester.ensureVisible(botonInicio);
     await tester.tap(botonInicio);
     await tester.pumpAndSettle();

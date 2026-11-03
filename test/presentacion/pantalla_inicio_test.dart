@@ -1,27 +1,124 @@
+import 'package:brilliant/datos/autenticacion/auth_client.dart';
 import 'package:brilliant/presentacion/pantalla_inicio.dart';
 import 'package:brilliant/presentacion/pantalla_instrucciones.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+class FakeAuthGateway implements AuthGateway {
+  FakeAuthGateway({this.user});
+
+  AuthUser? user;
+
+  static const account = AuthUser(
+    id: 'user-1',
+    name: 'Player One',
+    email: 'player@example.com',
+  );
+
+  @override
+  Future<AuthUser> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    user = account;
+    return account;
+  }
+
+  @override
+  Future<AuthUser> signIn({
+    required String email,
+    required String password,
+  }) async {
+    user = account;
+    return account;
+  }
+
+  @override
+  Future<AuthUser?> currentUser() async => user;
+
+  @override
+  Future<void> signOut() async => user = null;
+
+  @override
+  Future<void> deleteAccount(String password) async => user = null;
+}
+
 void main() {
-  testWidgets('muestra el nombre del juego y el botón de inicio', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaInicio()));
+  testWidgets('no permite jugar sin una sesión iniciada', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaInicio(authGateway: FakeAuthGateway())),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('Brilliant'), findsOneWidget);
-    expect(find.text('Instrucciones'), findsOneWidget);
-    expect(find.text('Cuenta'), findsOneWidget);
+    expect(
+      find.text('Crea una cuenta o inicia sesión para jugar.'),
+      findsOneWidget,
+    );
+    expect(find.text('Crear cuenta o iniciar sesión'), findsOneWidget);
+    expect(find.text('Instrucciones'), findsNothing);
     expect(find.text('Cómo jugar'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Inicio'), findsOneWidget);
+    expect(find.text('Jugar'), findsNothing);
     expect(find.byType(PantallaSeleccionMapa), findsNothing);
+  });
+
+  testWidgets('muestra el nombre y habilita el juego con sesión activa', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: FakeAuthGateway(user: FakeAuthGateway.account),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('¡Hola, Player One!'), findsOneWidget);
+    expect(find.text('Instrucciones'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Jugar'), findsOneWidget);
+  });
+
+  testWidgets('al registrarse vuelve al inicio con el nombre de usuario', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaInicio(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crear cuenta o iniciar sesión'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
+    await tester.enterText(
+      find.byKey(const Key('account-email')),
+      'player@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-password')),
+      'a-strong-password',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¡Hola, Player One!'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Jugar'), findsOneWidget);
   });
 
   testWidgets('el botón Instrucciones abre la información del juego', (
     tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaInicio()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: FakeAuthGateway(user: FakeAuthGateway.account),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Instrucciones'));
     await tester.pumpAndSettle();
@@ -37,11 +134,16 @@ void main() {
   });
 
   testWidgets('el botón Inicio navega al selector de mapas', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaInicio()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: FakeAuthGateway(user: FakeAuthGateway.account),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    final inicio = find.widgetWithText(FilledButton, 'Inicio');
-    await tester.ensureVisible(inicio);
-    await tester.tap(inicio);
+    await tester.tap(find.widgetWithText(FilledButton, 'Jugar'));
     await tester.pumpAndSettle();
 
     expect(find.byType(PantallaSeleccionMapa), findsOneWidget);
@@ -51,7 +153,14 @@ void main() {
   testWidgets('muestra instrucciones y puntuaciones específicas por mapa', (
     tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: PantallaInicio()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: FakeAuthGateway(user: FakeAuthGateway.account),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Instrucciones'));
     await tester.pumpAndSettle();

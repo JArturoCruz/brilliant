@@ -68,6 +68,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sesión iniciada'), findsOneWidget);
+    expect(find.text('Player One'), findsOneWidget);
     expect(find.text('player@example.com'), findsOneWidget);
 
     await tester.tap(find.text('Cerrar sesión'));

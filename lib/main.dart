@@ -7,7 +7,9 @@ void main() {
 }
 
 class BrilliantApp extends StatelessWidget {
-  const BrilliantApp({super.key});
+  const BrilliantApp({this.authGateway, super.key});
+
+  final AuthGateway? authGateway;
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +17,7 @@ class BrilliantApp extends StatelessWidget {
       title: 'Brilliant',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
-      home: PantallaInicio(authGateway: AuthClient.shared),
+      home: PantallaInicio(authGateway: authGateway ?? AuthClient.shared),
     );
   }
 }
