@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeAuthGateway implements AuthGateway {
-  FakeAuthGateway({this.user});
+  FakeAuthGateway({this.user, this.sessionError});
 
   AuthUser? user;
+  AuthApiException? sessionError;
+  int currentUserCalls = 0;
 
   static const account = AuthUser(
     id: 'user-1',
@@ -36,7 +38,15 @@ class FakeAuthGateway implements AuthGateway {
   }
 
   @override
-  Future<AuthUser?> currentUser() async => user;
+  Future<AuthUser?> currentUser() async {
+    currentUserCalls++;
+    final error = sessionError;
+    if (error != null) {
+      sessionError = null;
+      throw error;
+    }
+    return user;
+  }
 
   @override
   Future<void> signOut() async => user = null;
@@ -62,6 +72,36 @@ void main() {
     expect(find.text('Cómo jugar'), findsNothing);
     expect(find.text('Jugar'), findsNothing);
     expect(find.byType(PantallaSeleccionMapa), findsNothing);
+  });
+
+  testWidgets('ofrece reintentar sesión y recupera el nombre al reconectar', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway(
+      user: FakeAuthGateway.account,
+      sessionError: const AuthApiException(
+        'No se pudo conectar con el servidor.',
+        requestId: 'ref-session',
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaInicio(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Código de referencia: ref-session'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('retry-session')), findsOneWidget);
+    expect(find.text('Jugar'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('retry-session')));
+    await tester.pumpAndSettle();
+
+    expect(gateway.currentUserCalls, 2);
+    expect(find.text('¡Hola, Player One!'), findsOneWidget);
+    expect(find.text('Jugar'), findsOneWidget);
   });
 
   testWidgets('muestra el nombre y habilita el juego con sesión activa', (

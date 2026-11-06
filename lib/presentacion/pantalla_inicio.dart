@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../datos/autenticacion/auth_client.dart';
+import '../datos/multijugador/multiplayer_client.dart';
 import 'pantalla_cuenta.dart';
 import 'pantalla_instrucciones.dart';
+import 'pantalla_multijugador.dart';
 import 'seleccion_mapa/pantalla_seleccion_mapa.dart';
 
 class PantallaInicio extends StatefulWidget {
-  const PantallaInicio({this.authGateway, super.key});
+  const PantallaInicio({this.authGateway, this.multiplayerClient, super.key});
 
   final AuthGateway? authGateway;
+  final MultiplayerClient? multiplayerClient;
 
   @override
   State<PantallaInicio> createState() => _PantallaInicioState();
@@ -19,6 +22,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
 
   AuthUser? _user;
   String? _sessionError;
+  bool _canRetrySession = false;
   bool _isLoading = true;
 
   @override
@@ -34,18 +38,25 @@ class _PantallaInicioState extends State<PantallaInicio> {
         setState(() {
           _user = user;
           _sessionError = null;
+          _canRetrySession = false;
         });
       }
     } on AuthApiException catch (error) {
       if (mounted) {
         setState(() {
           _user = null;
-          _sessionError = error.message;
+          _sessionError = error.userMessage;
+          _canRetrySession = true;
         });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _retrySession() async {
+    setState(() => _isLoading = true);
+    await _restoreSession();
   }
 
   Future<void> _openAccount() async {
@@ -72,6 +83,17 @@ class _PantallaInicioState extends State<PantallaInicio> {
   void _openMaps() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const PantallaSeleccionMapa()),
+    );
+  }
+
+  void _openMultiplayer() {
+    final user = _user;
+    if (user == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PantallaMultijugador(user: user, client: widget.multiplayerClient),
+      ),
     );
   }
 
@@ -113,6 +135,13 @@ class _PantallaInicioState extends State<PantallaInicio> {
                               'Crea una cuenta o inicia sesión para jugar.',
                           textAlign: TextAlign.center,
                         ),
+                        if (_canRetrySession)
+                          TextButton.icon(
+                            key: const Key('retry-session'),
+                            onPressed: _isLoading ? null : _retrySession,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reintentar conexión'),
+                          ),
                         const SizedBox(height: 16),
                       ] else ...[
                         Text(
@@ -152,6 +181,19 @@ class _PantallaInicioState extends State<PantallaInicio> {
                             padding: EdgeInsets.symmetric(vertical: 14),
                             child: Text(
                               'Jugar',
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          key: const Key('open-multiplayer'),
+                          onPressed: _openMultiplayer,
+                          icon: const Icon(Icons.groups_outlined),
+                          label: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            child: Text(
+                              'Multijugador',
                               style: TextStyle(fontSize: 18),
                             ),
                           ),

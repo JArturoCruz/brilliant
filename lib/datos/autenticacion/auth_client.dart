@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -34,14 +36,30 @@ class SecureAuthTokenStore implements AuthTokenStore {
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> read() => _storage.read(key: _tokenKey);
+  Future<String?> read() => _guardStorage(() => _storage.read(key: _tokenKey));
 
   @override
   Future<void> write(String token) =>
-      _storage.write(key: _tokenKey, value: token);
+      _guardStorage(() => _storage.write(key: _tokenKey, value: token));
 
   @override
-  Future<void> delete() => _storage.delete(key: _tokenKey);
+  Future<void> delete() => _guardStorage(() => _storage.delete(key: _tokenKey));
+
+  Future<T> _guardStorage<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on PlatformException {
+      throw const AuthApiException(
+        'No se pudo acceder al almacenamiento seguro de la sesión.',
+        code: 'SECURE_STORAGE_ERROR',
+      );
+    } on MissingPluginException {
+      throw const AuthApiException(
+        'El almacenamiento seguro no está disponible en esta plataforma.',
+        code: 'SECURE_STORAGE_UNAVAILABLE',
+      );
+    }
+  }
 }
 
 class AuthUser {
@@ -55,24 +73,57 @@ class AuthUser {
     final id = json['id'];
     final name = json['name'];
     final email = json['email'];
-    if (id is! String || email is! String) {
+    if (id is! String ||
+        id.trim().isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        email is! String ||
+        !email.contains('@')) {
       throw const AuthApiException(
         'El servidor devolvió datos de cuenta no válidos.',
       );
     }
-    return AuthUser(id: id, name: name is String ? name : '', email: email);
+    return AuthUser(id: id, name: name, email: email);
   }
 }
 
 class AuthApiException implements Exception {
-  const AuthApiException(this.message, {this.code, this.statusCode});
+  const AuthApiException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.requestId,
+  });
 
   final String message;
   final String? code;
   final int? statusCode;
+  final String? requestId;
+
+  String get userMessage => requestId == null
+      ? message
+      : '$message\nCódigo de referencia: $requestId';
 
   @override
   String toString() => message;
+}
+
+class AuthRequestDiagnostic {
+  const AuthRequestDiagnostic({
+    required this.requestId,
+    required this.method,
+    required this.path,
+    required this.duration,
+    required this.succeeded,
+    this.statusCode,
+  });
+
+  final String requestId;
+  final String method;
+  final String path;
+  final Duration duration;
+  final bool succeeded;
+  final int? statusCode;
 }
 
 class AuthClient implements AuthGateway {
@@ -80,6 +131,7 @@ class AuthClient implements AuthGateway {
     required String baseUrl,
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
+    this.onDiagnostic,
   }) : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
        _httpClient = httpClient ?? http.Client(),
        _tokenStore = tokenStore ?? SecureAuthTokenStore();
@@ -101,6 +153,9 @@ class AuthClient implements AuthGateway {
     final uri = Uri.tryParse(baseUrl);
     if (uri == null ||
         !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        uri.query.isNotEmpty ||
+        uri.fragment.isNotEmpty ||
         (uri.scheme != 'http' && uri.scheme != 'https')) {
       throw StateError(
         'BRILLIANT_API_URL debe ser una URL HTTP o HTTPS válida.',
@@ -120,6 +175,24 @@ class AuthClient implements AuthGateway {
   final String _baseUrl;
   final http.Client _httpClient;
   final AuthTokenStore _tokenStore;
+  final void Function(AuthRequestDiagnostic diagnostic)? onDiagnostic;
+  static final Random _requestIdRandom = Random.secure();
+
+  Future<http.Response> authenticatedRequest(
+    String method,
+    String path, {
+    Object? body,
+  }) async {
+    final token = await _tokenStore.read();
+    if (token == null || token.trim().isEmpty) {
+      throw const AuthApiException(
+        'Inicia sesión para acceder al modo multijugador.',
+        code: 'UNAUTHORIZED',
+        statusCode: 401,
+      );
+    }
+    return _request(method, path, token: token, body: body);
+  }
 
   @override
   Future<AuthUser> register({
@@ -198,10 +271,13 @@ class AuthClient implements AuthGateway {
   @override
   Future<void> signOut() async {
     final token = await _tokenStore.read();
-    if (token != null) {
-      await _request('POST', '/api/auth/sign-out', token: token);
+    try {
+      if (token != null) {
+        await _request('POST', '/api/auth/sign-out', token: token);
+      }
+    } finally {
+      await _tokenStore.delete();
     }
-    await _tokenStore.delete();
   }
 
   @override
@@ -226,11 +302,14 @@ class AuthClient implements AuthGateway {
   Future<http.Response> _request(
     String method,
     String path, {
-    Map<String, String>? body,
+    Object? body,
     String? token,
   }) async {
+    final requestId = _newRequestId();
+    final stopwatch = Stopwatch()..start();
     final request = http.Request(method, Uri.parse('$_baseUrl$path'))
-      ..headers['accept'] = 'application/json';
+      ..headers['accept'] = 'application/json'
+      ..headers['x-request-id'] = requestId;
     if (body != null) {
       request.headers['content-type'] = 'application/json';
       request.body = jsonEncode(body);
@@ -245,32 +324,115 @@ class AuthClient implements AuthGateway {
         await _httpClient.send(request).timeout(const Duration(seconds: 15)),
       );
     } on SocketException {
+      _recordDiagnostic(
+        requestId: requestId,
+        method: method,
+        path: path,
+        duration: stopwatch.elapsed,
+        succeeded: false,
+      );
       throw const AuthApiException(
         'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo '
         'de nuevo.',
-      );
+      ).withRequestId(requestId);
     } on TimeoutException {
+      _recordDiagnostic(
+        requestId: requestId,
+        method: method,
+        path: path,
+        duration: stopwatch.elapsed,
+        succeeded: false,
+      );
       throw const AuthApiException(
         'El servidor tardó demasiado en responder. Inténtalo de nuevo.',
-      );
+      ).withRequestId(requestId);
     } on http.ClientException {
+      _recordDiagnostic(
+        requestId: requestId,
+        method: method,
+        path: path,
+        duration: stopwatch.elapsed,
+        succeeded: false,
+      );
       throw const AuthApiException(
         'No se pudo conectar con el servidor. Inténtalo de nuevo.',
-      );
+      ).withRequestId(requestId);
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errorBody = _tryDecodeObject(response.body);
-      final message =
-          errorBody?['message'] as String? ??
-          'No se pudo completar la solicitud. Inténtalo de nuevo.';
+      final retryAfter = int.tryParse(response.headers['x-retry-after'] ?? '');
+      final message = response.statusCode == 429
+          ? retryAfter == null
+                ? 'Se hicieron demasiados intentos. Espera un momento e '
+                      'inténtalo de nuevo.'
+                : 'Se hicieron demasiados intentos. Vuelve a intentarlo en '
+                      '$retryAfter segundos.'
+          : errorBody?['message'] as String? ??
+                'No se pudo completar la solicitud. Inténtalo de nuevo.';
+      _recordDiagnostic(
+        requestId: requestId,
+        method: method,
+        path: path,
+        duration: stopwatch.elapsed,
+        succeeded: false,
+        statusCode: response.statusCode,
+      );
       throw AuthApiException(
         message,
         code: errorBody?['code'] as String?,
         statusCode: response.statusCode,
+        requestId: requestId,
       );
     }
+    _recordDiagnostic(
+      requestId: requestId,
+      method: method,
+      path: path,
+      duration: stopwatch.elapsed,
+      succeeded: true,
+      statusCode: response.statusCode,
+    );
     return response;
+  }
+
+  void _recordDiagnostic({
+    required String requestId,
+    required String method,
+    required String path,
+    required Duration duration,
+    required bool succeeded,
+    int? statusCode,
+  }) {
+    final diagnostic = AuthRequestDiagnostic(
+      requestId: requestId,
+      method: method,
+      path: path,
+      duration: duration,
+      succeeded: succeeded,
+      statusCode: statusCode,
+    );
+    onDiagnostic?.call(diagnostic);
+    if (kDebugMode) {
+      debugPrint(
+        'Auth request ${diagnostic.succeeded ? 'succeeded' : 'failed'} '
+        'id=${diagnostic.requestId} method=${diagnostic.method} '
+        'path=${diagnostic.path} status=${diagnostic.statusCode ?? '-'} '
+        'durationMs=${diagnostic.duration.inMilliseconds}',
+      );
+    }
+  }
+
+  String _newRequestId() {
+    final bytes = List<int>.generate(16, (_) => _requestIdRandom.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
   }
 
   String? _tokenFromResponse(http.Response response) {
@@ -317,4 +479,13 @@ class AuthClient implements AuthGateway {
       'El servidor devolvió una respuesta no válida. Inténtalo más tarde.',
     );
   }
+}
+
+extension on AuthApiException {
+  AuthApiException withRequestId(String id) => AuthApiException(
+    message,
+    code: code,
+    statusCode: statusCode,
+    requestId: id,
+  );
 }

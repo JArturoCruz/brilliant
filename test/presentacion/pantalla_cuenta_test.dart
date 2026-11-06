@@ -7,6 +7,8 @@ class FakeAuthGateway implements AuthGateway {
   AuthUser? user;
   String? deletedPassword;
   bool loginCalled = false;
+  AuthApiException? registrationError;
+  AuthApiException? signOutError;
 
   static final account = AuthUser(
     id: 'user-1',
@@ -20,6 +22,8 @@ class FakeAuthGateway implements AuthGateway {
     required String email,
     required String password,
   }) async {
+    final error = registrationError;
+    if (error != null) throw error;
     user = account;
     return account;
   }
@@ -38,7 +42,11 @@ class FakeAuthGateway implements AuthGateway {
   Future<AuthUser?> currentUser() async => user;
 
   @override
-  Future<void> signOut() async => user = null;
+  Future<void> signOut() async {
+    user = null;
+    final error = signOutError;
+    if (error != null) throw error;
+  }
 
   @override
   Future<void> deleteAccount(String password) async {
@@ -110,5 +118,64 @@ void main() {
 
     expect(gateway.deletedPassword, 'a-strong-password');
     expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
+  });
+
+  testWidgets('shows a support reference when registration is rejected', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway()
+      ..registrationError = const AuthApiException(
+        'Ese nombre de usuario ya está en uso.',
+        statusCode: 409,
+        requestId: 'ref-123',
+      );
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
+    await tester.enterText(
+      find.byKey(const Key('account-email')),
+      'player@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-password')),
+      'a-strong-password',
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Ese nombre de usuario ya está en uso.\nCódigo de referencia: ref-123',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('account-name')), findsOneWidget);
+  });
+
+  testWidgets('clears local account view when remote sign-out fails', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway()
+      ..user = FakeAuthGateway.account
+      ..signOutError = const AuthApiException(
+        'No se pudo conectar con el servidor.',
+        requestId: 'ref-logout',
+      );
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
+    expect(
+      find.textContaining('Código de referencia: ref-logout'),
+      findsOneWidget,
+    );
   });
 }

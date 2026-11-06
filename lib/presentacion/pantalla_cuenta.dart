@@ -45,7 +45,7 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
       final user = await widget.authGateway.currentUser();
       if (mounted) setState(() => _user = user);
     } on AuthApiException catch (error) {
-      if (mounted) _showMessage(error.message);
+      if (mounted) _showMessage(error.userMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -74,7 +74,7 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
         }
       }
     } on AuthApiException catch (error) {
-      if (mounted) _showMessage(error.message);
+      if (mounted) _showMessage(error.userMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -86,7 +86,15 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
       await widget.authGateway.signOut();
       if (mounted) setState(() => _user = null);
     } on AuthApiException catch (error) {
-      if (mounted) _showMessage(error.message);
+      if (mounted) {
+        setState(() => _user = null);
+        final sessionMessage = error.statusCode == 401
+            ? 'La sesión del servidor ya no era válida.'
+            : 'Se cerró la sesión en este dispositivo, pero no se pudo '
+                  'confirmar con el servidor. La sesión remota podría seguir '
+                  'activa.';
+        _showMessage('$sessionMessage\n${error.userMessage}');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -148,7 +156,7 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
         _showMessage('Tu cuenta fue borrada.');
       }
     } on AuthApiException catch (error) {
-      if (mounted) _showMessage(error.message);
+      if (mounted) _showMessage(error.userMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
