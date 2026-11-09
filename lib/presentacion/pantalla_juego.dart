@@ -132,10 +132,10 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       }
     }
 
-    final isMyTurn = room.turnPlayerId == _multiplayerUser.id;
+    final hasPlayedThisRound = currentPlayer.playedThisRound;
     final phase = switch (room.phase) {
       'setup' => FaseTurno.inicio,
-      'playing' when isMyTurn => FaseTurno.seleccionandoAncla,
+      'playing' when !hasPlayedThisRound => FaseTurno.seleccionandoAncla,
       _ => FaseTurno.turnoTerminado,
     };
     context.read<JuegoBloc>().add(
@@ -155,6 +155,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
           fase: phase,
           dado1: room.dice == null ? null : room.dice![0],
           dado2: room.dice == null ? null : room.dice![1],
+          turnoSaltadoAutomaticamente: false,
           puntuacionTotal: currentPlayer.score,
           contadorCompletadasPorRegion: room.regionCounters,
           regionesCompletadas: room.regionCounters.entries
@@ -213,8 +214,8 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     await _runRoomAction(
       () => _multiplayerClient.playMove(
         code: room.code,
-        revision: room.revision,
         anchorDieIndex: anchorDieIndex - 1,
+        round: room.round,
         anchorRow: anchorRow,
         anchorColumn: anchorColumn,
         destinationRow: destinationRow,
@@ -227,8 +228,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     final room = _room;
     if (room == null) return;
     await _runRoomAction(
-      () =>
-          _multiplayerClient.skipTurn(code: room.code, revision: room.revision),
+      () => _multiplayerClient.skipRound(code: room.code, round: room.round),
     );
   }
 
@@ -249,7 +249,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
       setState(() => _remoteError = error.userMessage);
-      if (error.code == 'STALE_STATE') {
+      if (error.code == 'STALE_STATE' || error.code == 'STALE_ROUND') {
         await _refreshMultiplayer(force: true);
       }
     } finally {
@@ -649,19 +649,35 @@ class _PanelPartida extends StatelessWidget {
                   style: const TextStyle(color: Colors.amber),
                 );
               }
-              final isMyTurn =
-                  !multiplayer || room?.turnPlayerId == currentUserId;
-              final currentPlayerName = room?.playerName(room?.turnPlayerId);
+              RoomPlayer? myPlayer;
+              for (final player in room?.players ?? const <RoomPlayer>[]) {
+                if (player.id == currentUserId) myPlayer = player;
+              }
+              final canPlayThisRound =
+                  !multiplayer || myPlayer?.playedThisRound == false;
+              final hasCompletedRound =
+                  multiplayer && myPlayer?.playedThisRound == true;
+              final activePlayers =
+                  room?.players.where((player) => !player.forfeited).length ??
+                  0;
+              final completedPlayers =
+                  room?.players
+                      .where(
+                        (player) => !player.forfeited && player.playedThisRound,
+                      )
+                      .length ??
+                  0;
               return PanelDados(
-                isEnabled: isMyTurn && !isBusy,
+                isEnabled: canPlayThisRound && !isBusy,
                 onSkipTurn: multiplayer ? onSkipTurn : null,
                 onConfirmMove: multiplayer ? onConfirmMove : null,
-                waitingForTurn: multiplayer && !isMyTurn,
+                waitingForRound: hasCompletedRound,
                 turnMessage: multiplayer
-                    ? (isMyTurn
-                          ? 'Es tu turno'
-                          : 'Turno de ${currentPlayerName ?? 'otro jugador'}')
+                    ? (hasCompletedRound
+                          ? 'Ronda completada ($completedPlayers/$activePlayers). Esperando a los demás jugadores…'
+                          : 'Ronda ${room!.round}: dados compartidos por todos')
                     : null,
+                skipTurnLabel: multiplayer ? 'Terminar mi ronda' : null,
               );
             },
           ),

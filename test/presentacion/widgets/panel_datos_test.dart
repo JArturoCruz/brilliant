@@ -78,7 +78,7 @@ void main() {
     );
   });
 
-  testWidgets('shows only the next player message while waiting for a turn', (
+  testWidgets('shows the round-waiting message after completing a round', (
     tester,
   ) async {
     final bloc = JuegoBloc();
@@ -104,15 +104,18 @@ void main() {
             value: bloc,
             child: const PanelDados(
               isEnabled: false,
-              waitingForTurn: true,
-              turnMessage: 'Turno de Jugador Dos',
+              waitingForRound: true,
+              turnMessage: 'Ronda completada. Esperando a los demás jugadores…',
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('Turno de Jugador Dos'), findsOneWidget);
+    expect(
+      find.text('Ronda completada. Esperando a los demás jugadores…'),
+      findsOneWidget,
+    );
     expect(find.text('¡Turno terminado!'), findsNothing);
     expect(find.text('Siguiente Turno'), findsNothing);
   });

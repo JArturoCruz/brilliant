@@ -88,6 +88,7 @@ class RoomPlayer {
     required this.forfeited,
     required this.isWinner,
     required this.ready,
+    required this.playedThisRound,
   });
 
   final String id;
@@ -98,6 +99,7 @@ class RoomPlayer {
   final bool forfeited;
   final bool isWinner;
   final bool ready;
+  final bool playedThisRound;
 
   factory RoomPlayer.fromJson(Map<String, dynamic> json) => RoomPlayer(
     id: _string(json['id']),
@@ -108,6 +110,7 @@ class RoomPlayer {
     forfeited: json['forfeited'] == true,
     isWinner: json['isWinner'] == true,
     ready: json['ready'] == true,
+    playedThisRound: json['playedThisRound'] == true,
   );
 }
 
@@ -130,7 +133,7 @@ class RoomSnapshot {
     required this.players,
     required this.board,
     required this.dice,
-    required this.turnPlayerId,
+    required this.round,
     required this.scoreToWin,
     required this.revision,
     required this.winners,
@@ -146,7 +149,7 @@ class RoomSnapshot {
   final List<RoomPlayer> players;
   final List<List<int?>> board;
   final List<int>? dice;
-  final String? turnPlayerId;
+  final int round;
   final int scoreToWin;
   final int revision;
   final List<String> winners;
@@ -173,17 +176,16 @@ class RoomSnapshot {
     dice: json['dice'] == null
         ? null
         : _list(json['dice']).map(_integer).toList(growable: false),
-    turnPlayerId: json['turnPlayerId'] as String?,
     scoreToWin: _integer(json['scoreToWin']),
     revision: _integer(json['revision']),
+    round: _integer(json['round']),
     winners: _list(json['winners']).map(_string).toList(growable: false),
     finishReason: json['finishReason'] as String?,
     events: _list(json['events'])
         .map((value) => RoomEvent.fromJson(_object(value)))
         .toList(growable: false),
-    regionCounters: _object(json['regionCounters']).map(
-      (key, value) => MapEntry(key, _integer(value)),
-    ),
+    regionCounters: _object(json['regionCounters'])
+        .map((key, value) => MapEntry(key, _integer(value))),
   );
 
   String? playerName(String? playerId) {
@@ -270,14 +272,14 @@ class MultiplayerClient {
     ),
   );
 
-  Future<RoomSnapshot> skipTurn({
+  Future<RoomSnapshot> skipRound({
     required String code,
-    required int revision,
+    required int round,
   }) async => RoomSnapshot.fromJson(
     await _request(
       'POST',
       '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/skip',
-      body: {'revision': revision},
+      body: {'round': round},
     ),
   );
 
@@ -291,7 +293,7 @@ class MultiplayerClient {
 
   Future<RoomSnapshot> playMove({
     required String code,
-    required int revision,
+    required int round,
     required int anchorDieIndex,
     required int anchorRow,
     required int anchorColumn,
@@ -302,7 +304,7 @@ class MultiplayerClient {
       'POST',
       '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/move',
       body: {
-        'revision': revision,
+        'round': round,
         'anchorDieIndex': anchorDieIndex,
         'anchor': {'row': anchorRow, 'column': anchorColumn},
         'destination': {'row': destinationRow, 'column': destinationColumn},

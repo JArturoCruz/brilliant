@@ -53,6 +53,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
   Future<void> _refresh() async {
     if (_isPolling || !mounted) return;
     _isPolling = true;
+    var refreshLobbyAfterDissolution = false;
     try {
       final room = _room;
       if (room == null) {
@@ -89,13 +90,19 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
               error.code == 'ROOM_NOT_FOUND') {
             _room = null;
             _anchor = null;
-            _notice = error.message;
+            _error = null;
+            _connectionMessage = null;
+            _notice = error.code == 'ROOM_DISSOLVED'
+                ? '${error.message} Serás redirigido al lobby.'
+                : '${error.message} Regresaste al lobby.';
+            refreshLobbyAfterDissolution = true;
           }
         });
       }
     } finally {
       _isPolling = false;
     }
+    if (refreshLobbyAfterDissolution && mounted) await _refresh();
   }
 
   Future<void> _runRoomAction(Future<RoomSnapshot> Function() action) async {
@@ -125,7 +132,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                 'Conexión interrumpida. Reintentando automáticamente.';
           }
         });
-        if (error.code == 'STALE_STATE') await _refresh();
+        if (error.code == 'STALE_ROUND') await _refresh();
       }
     } finally {
       if (mounted) setState(() => _isBusy = false);
@@ -227,7 +234,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     final room = _room;
     if (room == null ||
         room.phase != 'playing' ||
-        room.turnPlayerId != widget.user.id ||
+        room.players
+            .firstWhere((player) => player.id == widget.user.id)
+            .playedThisRound ||
         _isBusy ||
         room.dice == null) {
       return;
@@ -265,7 +274,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     await _runRoomAction(
       () => _client.playMove(
         code: room.code,
-        revision: room.revision,
+        round: room.round,
         anchorDieIndex: _anchorDieIndex,
         anchorRow: currentAnchor.row,
         anchorColumn: currentAnchor.column,
@@ -448,8 +457,6 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
   Widget _buildRoom() {
     final room = _room!;
     final isHost = room.hostId == widget.user.id;
-    final isMyTurn = room.turnPlayerId == widget.user.id;
-    final currentPlayerName = room.playerName(room.turnPlayerId);
     RoomPlayer? myPlayer;
     for (final player in room.players) {
       if (player.id == widget.user.id) {
@@ -457,6 +464,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         break;
       }
     }
+    final canPlayThisRound = myPlayer?.playedThisRound == false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -498,6 +506,8 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                 if (!player.connected) 'Desconectado',
                 if (player.forfeited) 'Concedió',
                 if (room.phase != 'waiting') '${player.score} puntos',
+                if (room.phase == 'playing' && player.playedThisRound)
+                  'Ronda lista',
                 if (player.isWinner) 'Ganador',
               ].join(' · '),
             ),
@@ -526,11 +536,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         ] else if (room.phase == 'playing') ...[
           const Divider(height: 32),
           Text(
-            currentPlayerName == null
-                ? 'Esperando turno'
-                : isMyTurn
-                ? 'Es tu turno'
-                : 'Turno de $currentPlayerName',
+            canPlayThisRound
+                ? 'Ronda ${room.round}: juega con estos dados compartidos'
+                : 'Ronda completada. Esperando a los demás jugadores…',
             key: const Key('current-turn-status'),
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
@@ -543,7 +551,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            if (isMyTurn) ...[
+            if (canPlayThisRound) ...[
               const SizedBox(height: 8),
               Text(
                 _anchor == null
@@ -574,7 +582,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
             ],
           ],
           const SizedBox(height: 12),
-          _buildBoard(room, isMyTurn),
+          _buildBoard(room, canPlayThisRound),
           if (myPlayer != null)
             Text(
               'Tu puntuación: ${myPlayer.score}',

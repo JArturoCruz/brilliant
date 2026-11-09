@@ -12,7 +12,8 @@ class PanelDados extends StatelessWidget {
     this.onConfirmMove,
     this.onNextTurn,
     this.turnMessage,
-    this.waitingForTurn = false,
+    this.waitingForRound = false,
+    this.skipTurnLabel,
   });
 
   final bool isEnabled;
@@ -20,14 +21,15 @@ class PanelDados extends StatelessWidget {
   final VoidCallback? onConfirmMove;
   final VoidCallback? onNextTurn;
   final String? turnMessage;
-  final bool waitingForTurn;
+  final bool waitingForRound;
+  final String? skipTurnLabel;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, state) {
         final esperandoOtroTurno =
-            waitingForTurn && state.fase == FaseTurno.turnoTerminado;
+            waitingForRound && state.fase == FaseTurno.turnoTerminado;
         if (state.tableroCompleto) {
           return const Text(
             '¡Tablero completo! La partida ha terminado.',
@@ -130,7 +132,7 @@ class PanelDados extends StatelessWidget {
                           () => context.read<JuegoBloc>().add(SaltarTurno())
                     : null,
                 icon: const Icon(Icons.skip_next, size: 18),
-                label: const Text('Saltar Turno'),
+                label: Text(skipTurnLabel ?? 'Saltar Turno'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.grey.shade400,
                 ),

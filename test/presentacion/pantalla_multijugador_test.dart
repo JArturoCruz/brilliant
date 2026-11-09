@@ -37,9 +37,11 @@ void main() {
     int players = 1,
     String phase = 'waiting',
     int revision = 1,
+    int round = 1,
     List<List<int?>>? board,
     List<int>? dice,
-    String? turnPlayerId,
+    String? playedPlayerId,
+    Map<String, int>? regionCounters,
     bool ready = false,
   }) => {
     'code': 'ABC234',
@@ -57,11 +59,12 @@ void main() {
         'forfeited': false,
         'isWinner': false,
         'ready': ready,
+        'playedThisRound': id == playedPlayerId,
       };
     }),
     'board': board ?? List.generate(7, (_) => List<int?>.filled(7, null)),
     'dice': dice,
-    'turnPlayerId': turnPlayerId,
+    'round': round,
     'scoreToWin': 0,
     'revision': revision,
     'winners': <String>[],
@@ -73,7 +76,7 @@ void main() {
         'createdAt': '2026-01-01T00:00:00.000Z',
       },
     ],
-    'regionCounters': <String, int>{},
+    'regionCounters': regionCounters ?? <String, int>{},
   };
 
   Map<String, dynamic> lobbyJson() => {
@@ -164,6 +167,55 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets(
+    'returns to the lobby with a notice when the host dissolves the room',
+    (tester) async {
+      final requests = <String>[];
+      final client = clientWith((request) async {
+        requests.add('${request.method} ${request.url.path}');
+        if (request.url.path.endsWith('/lobby')) {
+          return http.Response(jsonEncode(lobbyJson()), 200);
+        }
+        if (request.url.path.endsWith('/join')) {
+          return http.Response(jsonEncode(roomJson(players: 2)), 200);
+        }
+        if (request.url.path.endsWith('/ABC234')) {
+          return http.Response(
+            jsonEncode({
+              'code': 'ROOM_DISSOLVED',
+              'message': 'El anfitrión abandonó la sala.',
+            }),
+            410,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PantallaMultijugador(user: user, client: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('invite-code-input')),
+        'abc234',
+      );
+      await tester.tap(find.byKey(const Key('join-room-by-code')));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lobby'), findsOneWidget);
+      expect(
+        find.text('El anfitrión abandonó la sala. Serás redirigido al lobby.'),
+        findsOneWidget,
+      );
+      expect(requests, contains('GET /api/multiplayer/lobby'));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('shows connection loss and recovers on retry', (tester) async {
     var failedOnce = false;
     final client = clientWith((request) async {
@@ -228,14 +280,13 @@ void main() {
             revision: 3,
             board: board,
             dice: [2, 3],
-            turnPlayerId: user.id,
             ready: true,
           );
           return http.Response(jsonEncode(latestRoom), 200);
         }
         if (request.url.path.endsWith('/move')) {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body['revision'], 3);
+          expect(body['round'], 1);
           expect(body['anchorDieIndex'], 0);
           expect(body['anchor'], {'row': 3, 'column': 1});
           expect(body['destination'], {'row': 2, 'column': 1});
@@ -249,9 +300,11 @@ void main() {
             players: 2,
             phase: 'playing',
             revision: 4,
+            round: 1,
             board: board,
             dice: [2, 3],
-            turnPlayerId: 'player-2',
+            playedPlayerId: user.id,
+            regionCounters: {'azul1': 1},
             ready: true,
           );
           return http.Response(jsonEncode(latestRoom), 200);
@@ -292,7 +345,7 @@ void main() {
       await tester.ensureVisible(find.text('Inicio'));
       await tester.tap(find.text('Inicio'));
       await tester.pumpAndSettle();
-      expect(find.text('Es tu turno'), findsOneWidget);
+      expect(find.text('Ronda 1: dados compartidos por todos'), findsOneWidget);
       expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('dado-1')));
       await tester.pump();
@@ -304,7 +357,11 @@ void main() {
       expect(find.text('¿Confirmas colocar el 3?'), findsOneWidget);
       await tester.tap(find.text('Confirmar Jugada'));
       await tester.pumpAndSettle();
-      expect(find.text('Turno de Jugador Dos'), findsOneWidget);
+      expect(
+        find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
+        findsOneWidget,
+      );
+      expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

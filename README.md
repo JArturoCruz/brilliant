@@ -39,9 +39,12 @@ the server closes active rooms, and multiplayer requires a single server
 instance.
 
 Each player configures and plays on a separate board using the original game
-interface and map rules. Players take turns with the same pair of dice for
-each round; the server validates every move and keeps each board private to
-its player.
+interface and map rules. Everyone plays each round with the same pair of dice
+at the same time; the next pair is rolled only after all players complete or
+skip that round. The server validates every move and keeps each board private
+to its player. Players who complete the same region during one round share
+that round's reward; the next reward remains for the next round in which
+someone completes it. Claimed rewards remain unavailable if a player concedes.
 
 ## Authentication and privacy
 
