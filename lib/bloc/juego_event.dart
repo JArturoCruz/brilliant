@@ -1,4 +1,5 @@
 import '../../dominio/posicion.dart';
+import 'juego_state.dart';
 
 abstract class JuegoEvent {
   const JuegoEvent();
@@ -41,3 +42,9 @@ class CancelarConfirmacion extends JuegoEvent {}
 
 // NUEVO EVENTO
 class SaltarTurno extends JuegoEvent {}
+
+class SincronizarJuegoMultijugador extends JuegoEvent {
+  const SincronizarJuegoMultijugador(this.estado);
+
+  final JuegoState estado;
+}

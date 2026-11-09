@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../datos/autenticacion/auth_client.dart';
 import '../datos/multijugador/multiplayer_client.dart';
+import '../dominio/mapa_tablero.dart';
+import 'pantalla_juego.dart';
 
 class PantallaMultijugador extends StatefulWidget {
   const PantallaMultijugador({required this.user, this.client, super.key});
@@ -32,6 +34,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
   bool _isLoading = true;
   bool _isBusy = false;
   bool _isPolling = false;
+  bool _gameScreenOpen = false;
 
   @override
   void initState() {
@@ -71,6 +74,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
             _connectionMessage = null;
             if (updatedRoom.revision != room.revision) _anchor = null;
           });
+          _openGameIfStarted(updatedRoom);
         }
       }
     } on MultiplayerApiException catch (error) {
@@ -110,6 +114,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
           _connectionMessage = null;
           _error = null;
         });
+        _openGameIfStarted(room);
       }
     } on MultiplayerApiException catch (error) {
       if (mounted) {
@@ -147,6 +152,45 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     if (room == null) return;
     await _runRoomAction(() => _client.startRoom(room.code));
   }
+
+  void _openGameIfStarted(RoomSnapshot room) {
+    if (!mounted ||
+        _gameScreenOpen ||
+        (room.phase != 'setup' && room.phase != 'playing')) {
+      return;
+    }
+    _gameScreenOpen = true;
+    Navigator.of(context)
+        .push<void>(
+          MaterialPageRoute(
+            builder: (_) => PantallaJuego(
+              mapa: _mapForId(room.mapId),
+              multiplayerClient: _client,
+              multiplayerUser: widget.user,
+              roomCode: room.code,
+              onRoomLeft: (message) {
+                if (!mounted) return;
+                setState(() {
+                  _room = null;
+                  _notice = message;
+                });
+              },
+            ),
+          ),
+        )
+        .whenComplete(() {
+          _gameScreenOpen = false;
+          if (mounted) _refresh();
+        });
+  }
+
+  MapaTablero _mapForId(int mapId) => switch (mapId) {
+    1 => MapaTablero.mapa1,
+    2 => MapaTablero.mapa2,
+    3 => MapaTablero.mapa3,
+    4 => MapaTablero.mapa4,
+    _ => throw ArgumentError.value(mapId, 'mapId', 'Mapa desconocido'),
+  };
 
   Future<void> _leaveRoom() async {
     final room = _room;

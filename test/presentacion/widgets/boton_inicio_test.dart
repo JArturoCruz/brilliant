@@ -1,12 +1,17 @@
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
+import 'package:brilliant/dominio/posicion.dart';
 import 'package:brilliant/dominio/tablero.dart';
 import 'package:brilliant/presentacion/widgets/boton_inicio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _envolver(ZonaInicialCubit cubit, TableroJuego tablero) {
+Widget _envolver(
+  ZonaInicialCubit cubit,
+  TableroJuego tablero, {
+  Future<void> Function(Map<Posicion, int>)? onStart,
+}) {
   final juegoBloc = JuegoBloc();
   return MaterialApp(
     home: MultiBlocProvider(
@@ -14,7 +19,7 @@ Widget _envolver(ZonaInicialCubit cubit, TableroJuego tablero) {
         BlocProvider<JuegoBloc>.value(value: juegoBloc),
         BlocProvider<ZonaInicialCubit>.value(value: cubit),
       ],
-      child: Scaffold(body: BotonInicio(tablero: tablero)),
+      child: Scaffold(body: BotonInicio(tablero: tablero, onStart: onStart)),
     ),
   );
 }
@@ -59,6 +64,27 @@ void main() {
     expect(cubit.state.iniciada, isTrue);
     final boton = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(boton.onPressed, isNull);
+    cubit.close();
+  });
+
+  testWidgets('no bloquea la configuración local si falla el envío remoto', (
+    tester,
+  ) async {
+    final cubit = ZonaInicialCubit();
+    await tester.pumpWidget(
+      _envolver(cubit, TableroJuego(), onStart: (_) async {}),
+    );
+
+    for (var i = 0; i < 6; i++) {
+      cubit.asignarASeleccionada(i + 1);
+    }
+    await tester.pump();
+
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.iniciada, isFalse);
+    expect(find.byType(FilledButton), findsOneWidget);
     cubit.close();
   });
 }

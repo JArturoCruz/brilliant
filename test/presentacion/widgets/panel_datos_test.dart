@@ -77,4 +77,43 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('shows only the next player message while waiting for a turn', (
+    tester,
+  ) async {
+    final bloc = JuegoBloc();
+    addTearDown(bloc.close);
+    bloc.add(
+      SincronizarJuegoMultijugador(
+        JuegoState(
+          tablero: bloc.state.tablero,
+          fase: FaseTurno.turnoTerminado,
+          dado1: 2,
+          dado2: 5,
+        ),
+      ),
+    );
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.turnoTerminado,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: const PanelDados(
+              isEnabled: false,
+              waitingForTurn: true,
+              turnMessage: 'Turno de Jugador Dos',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Turno de Jugador Dos'), findsOneWidget);
+    expect(find.text('¡Turno terminado!'), findsNothing);
+    expect(find.text('Siguiente Turno'), findsNothing);
+  });
 }

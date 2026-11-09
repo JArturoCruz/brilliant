@@ -44,16 +44,23 @@ class TableroWidget extends StatelessWidget {
                               Expanded(
                                 // 3. Capturamos los clics de las fases del juego
                                 child: GestureDetector(
+                                  key: Key('game-cell-$f-$c'),
                                   // Usamos hit test opaque para asegurar que capture el toque sobre la celda
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () {
                                     // Verificamos si estamos en la fase de elegir el ancla en el tablero
-                                    if (juegoState.fase == FaseTurno.seleccionandoCasilla) {
-                                      context.read<JuegoBloc>().add(SeleccionarCasillaAncla(f, c));
-                                    } 
+                                    if (juegoState.fase ==
+                                        FaseTurno.seleccionandoCasilla) {
+                                      context.read<JuegoBloc>().add(
+                                        SeleccionarCasillaAncla(f, c),
+                                      );
+                                    }
                                     // NUEVO -> Fase: Colocando el número sobrante
-                                    else if (juegoState.fase == FaseTurno.colocandoNumero) {
-                                      context.read<JuegoBloc>().add(ColocarNumero(f, c));
+                                    else if (juegoState.fase ==
+                                        FaseTurno.colocandoNumero) {
+                                      context.read<JuegoBloc>().add(
+                                        ColocarNumero(f, c),
+                                      );
                                     }
                                   },
                                   child: CeldaTableroWidget(
@@ -61,7 +68,7 @@ class TableroWidget extends StatelessWidget {
                                     state: zonaState,
                                     mapa: mapa,
                                     // 4. PASAMOS LOS DATOS DEL JUEGO A LA CELDA
-                                    casillaJuego: juegoState.tablero[f][c], 
+                                    casillaJuego: juegoState.tablero[f][c],
                                   ),
                                 ),
                               ),

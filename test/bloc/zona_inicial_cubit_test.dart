@@ -198,6 +198,22 @@ void main() {
   });
 
   group('ZonaInicialCubit - flujo completo', () {
+    test('restaura la configuración inicial recibida del servidor', () {
+      final cubit = ZonaInicialCubit();
+      final valores = {
+        for (var index = 0; index < ZonaInicial.posiciones.length; index++)
+          ZonaInicial.posiciones[index]: index + 1,
+      };
+
+      cubit.restaurarDesdeServidor(valores: valores, iniciada: true);
+
+      expect(cubit.state.valores, valores);
+      expect(cubit.state.esValida, isTrue);
+      expect(cubit.state.iniciada, isTrue);
+      expect(cubit.state.seleccionada, isNull);
+      cubit.close();
+    });
+
     test('llenar las 6 celdas con 1 a 6 sin repetir deja esValida en true', () {
       final cubit = ZonaInicialCubit();
       for (var i = 0; i < 6; i++) {

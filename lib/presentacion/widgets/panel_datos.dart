@@ -5,12 +5,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class PanelDados extends StatelessWidget {
-  const PanelDados({super.key});
+  const PanelDados({
+    super.key,
+    this.isEnabled = true,
+    this.onSkipTurn,
+    this.onConfirmMove,
+    this.onNextTurn,
+    this.turnMessage,
+    this.waitingForTurn = false,
+  });
+
+  final bool isEnabled;
+  final VoidCallback? onSkipTurn;
+  final VoidCallback? onConfirmMove;
+  final VoidCallback? onNextTurn;
+  final String? turnMessage;
+  final bool waitingForTurn;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, state) {
+        final esperandoOtroTurno =
+            waitingForTurn && state.fase == FaseTurno.turnoTerminado;
         if (state.tableroCompleto) {
           return const Text(
             '¡Tablero completo! La partida ha terminado.',
@@ -35,6 +52,8 @@ class PanelDados extends StatelessWidget {
         } else if (state.fase == FaseTurno.turnoTerminado) {
           mensaje = state.turnoSaltadoAutomaticamente
               ? 'No hay jugadas válidas con esta tirada. Turno saltado automáticamente.'
+              : esperandoOtroTurno
+              ? ''
               : '¡Turno terminado!';
         }
 
@@ -45,12 +64,25 @@ class PanelDados extends StatelessWidget {
 
         return Column(
           children: [
-            Text(
-              mensaje,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
+            if (turnMessage != null) ...[
+              Text(
+                turnMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (mensaje.isNotEmpty) ...[
+              Text(
+                mensaje,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -60,7 +92,7 @@ class PanelDados extends StatelessWidget {
                   rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
-                  onTap: permitirCambioDado
+                  onTap: permitirCambioDado && isEnabled
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
                             numeroElegido: state.dado1!,
@@ -77,7 +109,7 @@ class PanelDados extends StatelessWidget {
                   rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
-                  onTap: permitirCambioDado
+                  onTap: permitirCambioDado && isEnabled
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
                             numeroElegido: state.dado2!,
@@ -93,7 +125,10 @@ class PanelDados extends StatelessWidget {
             // Opción de Saltar Turno durante la fase activa
             if (permitirCambioDado)
               TextButton.icon(
-                onPressed: () => context.read<JuegoBloc>().add(SaltarTurno()),
+                onPressed: isEnabled
+                    ? onSkipTurn ??
+                          () => context.read<JuegoBloc>().add(SaltarTurno())
+                    : null,
                 icon: const Icon(Icons.skip_next, size: 18),
                 label: const Text('Saltar Turno'),
                 style: TextButton.styleFrom(
@@ -106,22 +141,34 @@ class PanelDados extends StatelessWidget {
                 spacing: 16,
                 children: [
                   OutlinedButton(
-                    onPressed: () =>
-                        context.read<JuegoBloc>().add(CancelarConfirmacion()),
+                    onPressed: isEnabled
+                        ? () => context.read<JuegoBloc>().add(
+                            CancelarConfirmacion(),
+                          )
+                        : null,
                     child: const Text('Cancelar'),
                   ),
                   FilledButton(
-                    onPressed: () =>
-                        context.read<JuegoBloc>().add(ConfirmarJugada()),
+                    onPressed: isEnabled
+                        ? onConfirmMove ??
+                              () => context.read<JuegoBloc>().add(
+                                ConfirmarJugada(),
+                              )
+                        : null,
                     child: const Text('Confirmar Jugada'),
                   ),
                 ],
               ),
             ],
-            if (state.fase == FaseTurno.turnoTerminado) ...[
+            if (state.fase == FaseTurno.turnoTerminado &&
+                !esperandoOtroTurno) ...[
               FilledButton(
-                onPressed: () =>
-                    context.read<JuegoBloc>().add(IniciarTurno(const {})),
+                onPressed: isEnabled
+                    ? onNextTurn ??
+                          () => context.read<JuegoBloc>().add(
+                            IniciarTurno(const {}),
+                          )
+                    : null,
                 child: const Text('Siguiente Turno'),
               ),
             ],

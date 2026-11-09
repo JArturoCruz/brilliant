@@ -38,6 +38,11 @@ interruption. Multiplayer rooms currently live in server memory: restarting
 the server closes active rooms, and multiplayer requires a single server
 instance.
 
+Each player configures and plays on a separate board using the original game
+interface and map rules. Players take turns with the same pair of dice for
+each round; the server validates every move and keeps each board private to
+its player.
+
 ## Authentication and privacy
 
 - Playing and viewing game instructions require an active session.

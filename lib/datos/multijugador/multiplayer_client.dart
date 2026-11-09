@@ -87,6 +87,7 @@ class RoomPlayer {
     required this.score,
     required this.forfeited,
     required this.isWinner,
+    required this.ready,
   });
 
   final String id;
@@ -96,6 +97,7 @@ class RoomPlayer {
   final int score;
   final bool forfeited;
   final bool isWinner;
+  final bool ready;
 
   factory RoomPlayer.fromJson(Map<String, dynamic> json) => RoomPlayer(
     id: _string(json['id']),
@@ -105,6 +107,7 @@ class RoomPlayer {
     score: _integer(json['score']),
     forfeited: json['forfeited'] == true,
     isWinner: json['isWinner'] == true,
+    ready: json['ready'] == true,
   );
 }
 
@@ -133,6 +136,7 @@ class RoomSnapshot {
     required this.winners,
     required this.finishReason,
     required this.events,
+    required this.regionCounters,
   });
 
   final String code;
@@ -148,6 +152,7 @@ class RoomSnapshot {
   final List<String> winners;
   final String? finishReason;
   final List<RoomEvent> events;
+  final Map<String, int> regionCounters;
 
   factory RoomSnapshot.fromJson(Map<String, dynamic> json) => RoomSnapshot(
     code: _string(json['code']),
@@ -176,6 +181,9 @@ class RoomSnapshot {
     events: _list(json['events'])
         .map((value) => RoomEvent.fromJson(_object(value)))
         .toList(growable: false),
+    regionCounters: _object(json['regionCounters']).map(
+      (key, value) => MapEntry(key, _integer(value)),
+    ),
   );
 
   String? playerName(String? playerId) {
@@ -248,6 +256,28 @@ class MultiplayerClient {
     await _request(
       'POST',
       '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/start',
+    ),
+  );
+
+  Future<RoomSnapshot> submitInitialBoard({
+    required String code,
+    required List<int> values,
+  }) async => RoomSnapshot.fromJson(
+    await _request(
+      'POST',
+      '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/setup',
+      body: {'values': values},
+    ),
+  );
+
+  Future<RoomSnapshot> skipTurn({
+    required String code,
+    required int revision,
+  }) async => RoomSnapshot.fromJson(
+    await _request(
+      'POST',
+      '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/skip',
+      body: {'revision': revision},
     ),
   );
 

@@ -24,6 +24,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     on<ConfirmarJugada>(_onConfirmarJugada);
     on<CancelarConfirmacion>(_onCancelarConfirmacion);
     on<SaltarTurno>(_onSaltarTurno); // NUEVO
+    on<SincronizarJuegoMultijugador>(
+      (event, emit) => emit(event.estado),
+    );
   }
 
   final MapaTablero mapa;

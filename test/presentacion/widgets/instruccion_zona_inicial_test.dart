@@ -64,7 +64,7 @@ void main() {
     tester,
   ) async {
     final cubit = ZonaInicialCubit();
-    final juegoBloc = JuegoBloc();
+    final juegoBloc = JuegoBloc(tirarDado: () => 1);
     await tester.pumpWidget(
       MaterialApp(
         home: BlocProvider.value(

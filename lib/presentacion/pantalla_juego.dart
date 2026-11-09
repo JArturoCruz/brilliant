@@ -1,6 +1,13 @@
+import 'dart:async';
+
 import 'package:brilliant/bloc/juego_bloc.dart';
+import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/datos/autenticacion/auth_client.dart';
+import 'package:brilliant/datos/multijugador/multiplayer_client.dart';
+import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
+import 'package:brilliant/dominio/posicion.dart';
 import 'package:brilliant/presentacion/widgets/historial_partida_widget.dart';
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +15,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../bloc/zona_inicial_cubit.dart';
 import '../dominio/tablero.dart';
+import '../dominio/zona_inicial.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
@@ -17,9 +25,20 @@ import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
 
 class PantallaJuego extends StatefulWidget {
-  const PantallaJuego({super.key, this.mapa = MapaTablero.mapa1});
+  const PantallaJuego({
+    super.key,
+    this.mapa = MapaTablero.mapa1,
+    this.multiplayerClient,
+    this.multiplayerUser,
+    this.roomCode,
+    this.onRoomLeft,
+  });
 
   final MapaTablero mapa;
+  final MultiplayerClient? multiplayerClient;
+  final AuthUser? multiplayerUser;
+  final String? roomCode;
+  final ValueChanged<String>? onRoomLeft;
 
   @override
   State<PantallaJuego> createState() => _PantallaJuegoState();
@@ -27,6 +46,245 @@ class PantallaJuego extends StatefulWidget {
 
 class _PantallaJuegoState extends State<PantallaJuego> {
   final TableroJuego tablero = TableroJuego();
+  Timer? _pollTimer;
+  BuildContext? _gameContext;
+  RoomSnapshot? _room;
+  String? _remoteError;
+  bool _isPolling = false;
+  bool _isBusy = false;
+  bool _allowPop = false;
+  int? _lastSynchronizedRevision;
+
+  bool get _isMultiplayer =>
+      widget.multiplayerClient != null &&
+      widget.multiplayerUser != null &&
+      widget.roomCode != null;
+
+  MultiplayerClient get _multiplayerClient => widget.multiplayerClient!;
+  AuthUser get _multiplayerUser => widget.multiplayerUser!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isMultiplayer) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _refreshMultiplayer(),
+      );
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => _refreshMultiplayer(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshMultiplayer({bool force = false}) async {
+    if (!_isMultiplayer || _isPolling || (_isBusy && !force) || !mounted) {
+      return;
+    }
+    _isPolling = true;
+    try {
+      final room = await _multiplayerClient.getRoom(widget.roomCode!);
+      if (!mounted) return;
+      _synchronizeRoom(room);
+      setState(() {
+        _room = room;
+        _remoteError = null;
+      });
+    } on MultiplayerApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _remoteError = error.userMessage);
+    } finally {
+      _isPolling = false;
+    }
+  }
+
+  void _synchronizeRoom(RoomSnapshot room) {
+    final context = _gameContext;
+    if (context == null || !context.mounted) return;
+    final currentPlayer = room.players.firstWhere(
+      (player) => player.id == _multiplayerUser.id,
+    );
+    if (_lastSynchronizedRevision == room.revision) return;
+    _lastSynchronizedRevision = room.revision;
+
+    final initialValues = <Posicion, int>{};
+    for (final position in ZonaInicial.posicionesParaMapa(widget.mapa)) {
+      final value = room.board[position.fila][position.columna];
+      if (value != null) initialValues[position] = value;
+    }
+    context.read<ZonaInicialCubit>().restaurarDesdeServidor(
+      valores: initialValues,
+      iniciada:
+          currentPlayer.ready ||
+          room.phase == 'playing' ||
+          room.phase == 'finished',
+    );
+
+    for (var row = 0; row < TableroJuego.filas; row++) {
+      for (var column = 0; column < TableroJuego.columnas; column++) {
+        tablero.asignarValor(row, column, room.board[row][column]);
+      }
+    }
+
+    final isMyTurn = room.turnPlayerId == _multiplayerUser.id;
+    final phase = switch (room.phase) {
+      'setup' => FaseTurno.inicio,
+      'playing' when isMyTurn => FaseTurno.seleccionandoAncla,
+      _ => FaseTurno.turnoTerminado,
+    };
+    context.read<JuegoBloc>().add(
+      SincronizarJuegoMultijugador(
+        JuegoState(
+          tablero: [
+            for (var row = 0; row < TableroJuego.filas; row++)
+              [
+                for (var column = 0; column < TableroJuego.columnas; column++)
+                  Casilla(
+                    fila: row,
+                    columna: column,
+                    valorActual: room.board[row][column],
+                  ),
+              ],
+          ],
+          fase: phase,
+          dado1: room.dice == null ? null : room.dice![0],
+          dado2: room.dice == null ? null : room.dice![1],
+          puntuacionTotal: currentPlayer.score,
+          contadorCompletadasPorRegion: room.regionCounters,
+          regionesCompletadas: room.regionCounters.entries
+              .where((entry) => entry.value > 0)
+              .map((entry) => entry.key)
+              .toSet(),
+          historial: room.events.reversed
+              .map((event) => event.message)
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitInitialBoard(Map<Posicion, int> values) async {
+    final room = _room;
+    if (room == null) return;
+    final positions = ZonaInicial.posicionesParaMapa(widget.mapa);
+    final orderedValues = <int>[];
+    for (final position in positions) {
+      final value = values[position];
+      if (value == null) {
+        setState(() => _remoteError = 'Completa los seis números iniciales.');
+        return;
+      }
+      orderedValues.add(value);
+    }
+    await _runRoomAction(
+      () => _multiplayerClient.submitInitialBoard(
+        code: room.code,
+        values: orderedValues,
+      ),
+    );
+  }
+
+  Future<void> _submitMove() async {
+    final room = _room;
+    final context = _gameContext;
+    if (room == null || context == null || !context.mounted) return;
+    final state = context.read<JuegoBloc>().state;
+    final anchorRow = state.filaAncla;
+    final anchorColumn = state.columnaAncla;
+    final destinationRow = state.filaProvisional;
+    final destinationColumn = state.columnaProvisional;
+    final anchorDieIndex = state.indiceDadoAncla;
+    if (anchorRow == null ||
+        anchorColumn == null ||
+        destinationRow == null ||
+        destinationColumn == null ||
+        anchorDieIndex == null) {
+      setState(
+        () => _remoteError = 'Selecciona una jugada válida antes de confirmar.',
+      );
+      return;
+    }
+    await _runRoomAction(
+      () => _multiplayerClient.playMove(
+        code: room.code,
+        revision: room.revision,
+        anchorDieIndex: anchorDieIndex - 1,
+        anchorRow: anchorRow,
+        anchorColumn: anchorColumn,
+        destinationRow: destinationRow,
+        destinationColumn: destinationColumn,
+      ),
+    );
+  }
+
+  Future<void> _skipTurn() async {
+    final room = _room;
+    if (room == null) return;
+    await _runRoomAction(
+      () =>
+          _multiplayerClient.skipTurn(code: room.code, revision: room.revision),
+    );
+  }
+
+  Future<void> _runRoomAction(Future<RoomSnapshot> Function() action) async {
+    if (_isBusy) return;
+    setState(() {
+      _isBusy = true;
+      _remoteError = null;
+    });
+    try {
+      final room = await action();
+      if (!mounted) return;
+      _synchronizeRoom(room);
+      setState(() {
+        _room = room;
+        _remoteError = null;
+      });
+    } on MultiplayerApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _remoteError = error.userMessage);
+      if (error.code == 'STALE_STATE') {
+        await _refreshMultiplayer(force: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  Future<void> _leaveMultiplayerGame() async {
+    final room = _room;
+    if (room == null || _isBusy) return;
+    setState(() {
+      _isBusy = true;
+      _remoteError = null;
+    });
+    try {
+      final result = await _multiplayerClient.leaveRoom(room.code);
+      if (!mounted) return;
+      _allowPop = true;
+      widget.onRoomLeft?.call(
+        result.message ??
+            (result.dissolved ? 'La sala se cerró.' : 'Saliste de la sala.'),
+      );
+      Navigator.of(context).maybePop();
+    } on MultiplayerApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _remoteError = error.userMessage);
+      if (error.code == 'ROOM_DISSOLVED' || error.code == 'ROOM_NOT_FOUND') {
+        _allowPop = true;
+        widget.onRoomLeft?.call(error.message);
+        Navigator.of(context).maybePop();
+      }
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,141 +296,177 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         ),
       ],
       child: AtajosTecladoZonaInicial(
-        child: MensajesZonaInicialListener(
-          child: Scaffold(
-            appBar: AppBar(
-              backgroundColor: Colors.black,
-              elevation: 0,
-              title: const Text(
-                'Brilliant',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+        child: Builder(
+          builder: (context) {
+            _gameContext = context;
+            return PopScope<Object?>(
+              canPop: !_isMultiplayer || _allowPop,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop && _isMultiplayer) _leaveMultiplayerGame();
+              },
+              child: MensajesZonaInicialListener(
+                child: _buildScaffold(context),
               ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: BlocBuilder<JuegoBloc, JuegoState>(
-                    builder: (context, state) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50.withAlpha(230),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: Colors.amber.shade400,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.amber.withAlpha(80),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.star_rounded,
-                              color: Colors.amber.shade700,
-                              size: 26,
-                            ),
-                            const SizedBox(width: 6),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              transitionBuilder:
-                                  (Widget child, Animation<double> animation) {
-                                    return ScaleTransition(
-                                      scale: animation,
-                                      child: child,
-                                    );
-                                  },
-                              child: Text(
-                                '${state.puntuacionTotal}',
-                                key: ValueKey<int>(state.puntuacionTotal),
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.amber.shade900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: Text(
+          _isMultiplayer ? 'Brilliant · ${widget.roomCode}' : 'Brilliant',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          if (_isMultiplayer)
+            IconButton(
+              key: const Key('leave-multiplayer-game'),
+              tooltip: 'Abandonar partida',
+              onPressed: _leaveMultiplayerGame,
+              icon: const Icon(Icons.logout),
             ),
-            body: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 800) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 500),
-                          child: Column(
-                            children: [
-                              const InstruccionZonaInicial(),
-                              const SizedBox(height: 16),
-                              _TableroConPuntuaciones(
-                                mapa: widget.mapa,
-                                altoDisponible: constraints.maxHeight - 100,
-                                enVertical: constraints.maxWidth < 600,
-                              ),
-                              const SizedBox(height: 24),
-                              _PanelPartida(tablero: tablero, compacto: true),
-                            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: BlocBuilder<JuegoBloc, JuegoState>(
+              builder: (context, state) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50.withAlpha(230),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.amber.shade400, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withAlpha(80),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        color: Colors.amber.shade700,
+                        size: 26,
+                      ),
+                      const SizedBox(width: 6),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                              return ScaleTransition(
+                                scale: animation,
+                                child: child,
+                              );
+                            },
+                        child: Text(
+                          '${state.puntuacionTotal}',
+                          key: ValueKey<int>(state.puntuacionTotal),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade900,
                           ),
                         ),
                       ),
-                    );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Center(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const InstruccionZonaInicial(),
-                                  const SizedBox(height: 16),
-                                  _TableroConPuntuaciones(
-                                    mapa: widget.mapa,
-                                    altoDisponible: constraints.maxHeight,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(child: _PanelPartida(tablero: tablero)),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
+        ],
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 800) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 500),
+                    child: Column(
+                      children: [
+                        const InstruccionZonaInicial(),
+                        const SizedBox(height: 16),
+                        _TableroConPuntuaciones(
+                          mapa: widget.mapa,
+                          altoDisponible: constraints.maxHeight - 100,
+                          enVertical: constraints.maxWidth < 600,
+                        ),
+                        const SizedBox(height: 24),
+                        _PanelPartida(
+                          tablero: tablero,
+                          compacto: true,
+                          multiplayer: _isMultiplayer,
+                          room: _room,
+                          currentUserId: widget.multiplayerUser?.id,
+                          isBusy: _isBusy,
+                          onStart: _submitInitialBoard,
+                          onConfirmMove: _submitMove,
+                          onSkipTurn: _skipTurn,
+                          errorMessage: _remoteError,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const InstruccionZonaInicial(),
+                            const SizedBox(height: 16),
+                            _TableroConPuntuaciones(
+                              mapa: widget.mapa,
+                              altoDisponible: constraints.maxHeight,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: _PanelPartida(
+                      tablero: tablero,
+                      multiplayer: _isMultiplayer,
+                      room: _room,
+                      currentUserId: widget.multiplayerUser?.id,
+                      isBusy: _isBusy,
+                      onStart: _submitInitialBoard,
+                      onConfirmMove: _submitMove,
+                      onSkipTurn: _skipTurn,
+                      errorMessage: _remoteError,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -244,10 +538,29 @@ class _TableroConPuntuaciones extends StatelessWidget {
 }
 
 class _PanelPartida extends StatelessWidget {
-  const _PanelPartida({required this.tablero, this.compacto = false});
+  const _PanelPartida({
+    required this.tablero,
+    this.compacto = false,
+    this.multiplayer = false,
+    this.room,
+    this.currentUserId,
+    this.isBusy = false,
+    this.onStart,
+    this.onConfirmMove,
+    this.onSkipTurn,
+    this.errorMessage,
+  });
 
   final TableroJuego tablero;
   final bool compacto;
+  final bool multiplayer;
+  final RoomSnapshot? room;
+  final String? currentUserId;
+  final bool isBusy;
+  final Future<void> Function(Map<Posicion, int>)? onStart;
+  final VoidCallback? onConfirmMove;
+  final VoidCallback? onSkipTurn;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +574,26 @@ class _PanelPartida extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (multiplayer && room != null) ...[
+            Text(
+              'Sala ${room!.code}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (errorMessage != null) ...[
+            Text(
+              errorMessage!,
+              key: const Key('multiplayer-game-error'),
+              style: const TextStyle(color: Colors.redAccent),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+          ],
           const Text(
             'Registro de Partida',
             style: TextStyle(
@@ -279,16 +612,57 @@ class _PanelPartida extends StatelessWidget {
           const SizedBox(height: 16),
           BlocBuilder<JuegoBloc, JuegoState>(
             builder: (context, juegoState) {
+              if (multiplayer && room == null) {
+                return const Text(
+                  'Conectando con la sala…',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
+                );
+              }
               if (juegoState.fase == FaseTurno.inicio) {
+                RoomPlayer? myPlayer;
+                for (final player in room?.players ?? const <RoomPlayer>[]) {
+                  if (player.id == currentUserId) myPlayer = player;
+                }
+                if (multiplayer && myPlayer?.ready == true) {
+                  return const Text(
+                    'Configuración enviada. Esperando a los demás jugadores…',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70),
+                  );
+                }
                 return Column(
                   children: [
                     const SelectorNumerosZonaInicial(),
                     const SizedBox(height: 20),
-                    BotonInicio(tablero: tablero),
+                    BotonInicio(tablero: tablero, onStart: onStart),
                   ],
                 );
               }
-              return const PanelDados();
+              if (multiplayer && room?.phase == 'finished') {
+                final winners = room!.winners
+                    .map((id) => room!.playerName(id) ?? id)
+                    .join(', ');
+                return Text(
+                  winners.isEmpty ? 'Partida finalizada.' : 'Ganador: $winners',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.amber),
+                );
+              }
+              final isMyTurn =
+                  !multiplayer || room?.turnPlayerId == currentUserId;
+              final currentPlayerName = room?.playerName(room?.turnPlayerId);
+              return PanelDados(
+                isEnabled: isMyTurn && !isBusy,
+                onSkipTurn: multiplayer ? onSkipTurn : null,
+                onConfirmMove: multiplayer ? onConfirmMove : null,
+                waitingForTurn: multiplayer && !isMyTurn,
+                turnMessage: multiplayer
+                    ? (isMyTurn
+                          ? 'Es tu turno'
+                          : 'Turno de ${currentPlayerName ?? 'otro jugador'}')
+                    : null,
+              );
             },
           ),
         ],

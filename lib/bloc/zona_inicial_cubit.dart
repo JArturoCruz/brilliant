@@ -20,14 +20,14 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     ValidadorEntradaZonaInicial? validador,
     NavegadorZonaInicial? navegador,
     this.mapa = MapaTablero.mapa1,
-  })  : _validador = validador ?? const ValidadorEntradaZonaInicial(),
-        _navegador = navegador ?? const NavegadorZonaInicial(),
-        _validadorDeJugadas = ValidadorDeJugadas(mapa: mapa),
-        super(
-          ZonaInicialState.inicial(
-            posiciones: ZonaInicial.posicionesParaMapa(mapa),
-          ),
-        );
+  }) : _validador = validador ?? const ValidadorEntradaZonaInicial(),
+       _navegador = navegador ?? const NavegadorZonaInicial(),
+       _validadorDeJugadas = ValidadorDeJugadas(mapa: mapa),
+       super(
+         ZonaInicialState.inicial(
+           posiciones: ZonaInicial.posicionesParaMapa(mapa),
+         ),
+       );
 
   final ValidadorEntradaZonaInicial _validador;
   final NavegadorZonaInicial _navegador;
@@ -46,8 +46,11 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   /// Pensado para las flechas del teclado: -1 = anterior, 1 = siguiente.
   void moverSeleccion(int delta) {
     if (state.iniciada) return;
-    final siguiente =
-        _navegador.siguiente(_posiciones, state.seleccionada, delta);
+    final siguiente = _navegador.siguiente(
+      _posiciones,
+      state.seleccionada,
+      delta,
+    );
     emit(state.copyWith(seleccionada: siguiente));
   }
 
@@ -60,10 +63,12 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
     final nuevosValores = Map<Posicion, int?>.from(state.valores)
       ..[posicion] = valor;
 
-    emit(state.copyWith(
-      valores: nuevosValores,
-      esValida: ZonaInicial.esValida(nuevosValores.values.toList()),
-    ));
+    emit(
+      state.copyWith(
+        valores: nuevosValores,
+        esValida: ZonaInicial.esValida(nuevosValores.values.toList()),
+      ),
+    );
   }
 
   /// Coloca [numero] en la celda seleccionada. Si ya está usado en otra
@@ -122,8 +127,7 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   }
 
   void _avanzarASiguienteVacia() {
-    final vacia =
-        _navegador.siguienteVacia(_posiciones, state.valores);
+    final vacia = _navegador.siguienteVacia(_posiciones, state.valores);
     if (vacia != null) emit(state.copyWith(seleccionada: vacia));
     // Si no hay ninguna vacía, se conserva la selección actual.
   }
@@ -140,10 +144,31 @@ class ZonaInicialCubit extends Cubit<ZonaInicialState> {
   void aplicarATablero(TableroJuego tablero) {
     if (state.iniciada) return;
     for (final entrada in state.valores.entries) {
-      tablero.asignarValor(entrada.key.fila, entrada.key.columna, entrada.value);
+      tablero.asignarValor(
+        entrada.key.fila,
+        entrada.key.columna,
+        entrada.value,
+      );
     }
     if (state.esValida) {
       emit(state.copyWith(iniciada: true, limpiarSeleccion: true));
     }
+  }
+
+  void restaurarDesdeServidor({
+    required Map<Posicion, int> valores,
+    required bool iniciada,
+  }) {
+    final restaurados = {
+      for (final posicion in _posiciones) posicion: valores[posicion],
+    };
+    emit(
+      state.copyWith(
+        valores: restaurados,
+        esValida: ZonaInicial.esValida(restaurados.values.toList()),
+        iniciada: iniciada,
+        limpiarSeleccion: iniciada,
+      ),
+    );
   }
 }
