@@ -12,6 +12,8 @@ import 'package:brilliant/dominio/tipos/tipo_verde.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../tema_mesa.dart';
+
 class PuntuacionesDisponiblesWidget extends StatelessWidget {
   const PuntuacionesDisponiblesWidget({
     super.key,
@@ -38,9 +40,9 @@ class PuntuacionesDisponiblesWidget extends StatelessWidget {
             return Container(
               padding: EdgeInsets.all(8 * escala),
               decoration: BoxDecoration(
-                color: Colors.black45,
+                color: TemaMesa.papelClaro,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade800),
+                border: Border.all(color: TemaMesa.nogal.withAlpha(70)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -52,7 +54,7 @@ class PuntuacionesDisponiblesWidget extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14 * escala,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white70,
+                      color: TemaMesa.nogal,
                     ),
                   ),
                   SizedBox(height: 8 * escala),
@@ -204,8 +206,8 @@ class _PuntuacionGrupo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorTexto = grupo.color == Colors.white
-        ? Colors.black
-        : Colors.white;
+        ? TemaMesa.tinta
+        : TemaMesa.nogalOscuro;
     final puntuaciones = List.generate(
       3,
       (index) => mapa.puntosPorPosicion(grupo.region, index + 1),
@@ -220,7 +222,7 @@ class _PuntuacionGrupo extends StatelessWidget {
           decoration: BoxDecoration(
             color: grupo.color,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: Colors.white30),
+            border: Border.all(color: TemaMesa.nogal.withAlpha(90)),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -246,7 +248,7 @@ class _PuntuacionGrupo extends StatelessWidget {
               maxLines: 1,
               overflow: compacto ? TextOverflow.visible : TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white,
+                color: TemaMesa.tinta,
                 fontSize: 9 * escala,
                 fontWeight: FontWeight.w600,
               ),
@@ -270,7 +272,7 @@ class _PuntuacionGrupo extends StatelessWidget {
               style: TextStyle(
                 color: index < posicionesConsumidas
                     ? Colors.grey.shade700
-                    : Colors.amberAccent,
+                    : TemaMesa.nogal,
                 fontSize: 11 * escala,
                 fontWeight: FontWeight.bold,
                 decoration: index < posicionesConsumidas
@@ -279,7 +281,7 @@ class _PuntuacionGrupo extends StatelessWidget {
                 decorationColor: colorTexto.withAlpha(100),
                 shadows: index < posicionesConsumidas
                     ? null
-                    : [const Shadow(color: Colors.amber, blurRadius: 8)],
+                    : [const Shadow(color: Color(0x55C28A35), blurRadius: 4)],
               ),
             ),
           ),

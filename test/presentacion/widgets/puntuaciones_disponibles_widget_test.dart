@@ -4,7 +4,7 @@ import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/posicion.dart';
-import 'package:brilliant/dominio/region.dart';
+import 'package:brilliant/presentacion/tema_mesa.dart';
 import 'package:brilliant/presentacion/widgets/puntuaciones_disponibles_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -70,7 +70,7 @@ void main() {
       final premio = tester.widget<Text>(
         find.byKey(ValueKey('puntuacion-roja1-$puesto')),
       );
-      expect(premio.style!.color, Colors.amberAccent);
+      expect(premio.style!.color, TemaMesa.nogal);
       expect(premio.style!.decoration, TextDecoration.none);
     }
   });
@@ -147,13 +147,13 @@ void main() {
     );
     expect(primerPremio.style!.color, Colors.grey.shade700);
     expect(primerPremio.style!.decoration, TextDecoration.lineThrough);
-    expect(segundoPremio.style!.color, Colors.amberAccent);
+    expect(segundoPremio.style!.color, TemaMesa.nogal);
     expect(segundoPremio.style!.decoration, TextDecoration.none);
 
     final primerPremioZonaRojaDerecha = tester.widget<Text>(
       find.byKey(const ValueKey('puntuacion-roja2-1')),
     );
-    expect(primerPremioZonaRojaDerecha.style!.color, Colors.amberAccent);
+    expect(primerPremioZonaRojaDerecha.style!.color, TemaMesa.nogal);
     expect(primerPremioZonaRojaDerecha.style!.decoration, TextDecoration.none);
   });
 }

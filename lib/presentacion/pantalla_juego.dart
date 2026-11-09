@@ -23,6 +23,7 @@ import 'widgets/instruccion_zona_inicial.dart';
 import 'widgets/puntuaciones_disponibles_widget.dart';
 import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
+import 'tema_mesa.dart';
 
 class PantallaJuego extends StatefulWidget {
   const PantallaJuego({
@@ -317,11 +318,8 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
         title: Text(
           _isMultiplayer ? 'Brilliant · ${widget.roomCode}' : 'Brilliant',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
           if (_isMultiplayer)
@@ -567,9 +565,9 @@ class _PanelPartida extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black45,
+        color: TemaMesa.papelClaro,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade800),
+        border: Border.all(color: TemaMesa.nogal.withAlpha(70)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -579,7 +577,7 @@ class _PanelPartida extends StatelessWidget {
               'Sala ${room!.code}',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white70,
+                color: TemaMesa.nogal,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -589,7 +587,7 @@ class _PanelPartida extends StatelessWidget {
             Text(
               errorMessage!,
               key: const Key('multiplayer-game-error'),
-              style: const TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -599,7 +597,7 @@ class _PanelPartida extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.white70,
+              color: TemaMesa.nogal,
             ),
           ),
           const SizedBox(height: 8),
@@ -608,7 +606,7 @@ class _PanelPartida extends StatelessWidget {
           else
             const Expanded(child: HistorialPartidaWidget()),
           const SizedBox(height: 16),
-          const Divider(color: Colors.grey),
+          const Divider(color: Color(0x5568452D)),
           const SizedBox(height: 16),
           BlocBuilder<JuegoBloc, JuegoState>(
             builder: (context, juegoState) {
@@ -616,7 +614,7 @@ class _PanelPartida extends StatelessWidget {
                 return const Text(
                   'Conectando con la sala…',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: TemaMesa.nogal),
                 );
               }
               if (juegoState.fase == FaseTurno.inicio) {
@@ -628,7 +626,7 @@ class _PanelPartida extends StatelessWidget {
                   return const Text(
                     'Configuración enviada. Esperando a los demás jugadores…',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: TemaMesa.nogal),
                   );
                 }
                 return Column(
@@ -646,7 +644,10 @@ class _PanelPartida extends StatelessWidget {
                 return Text(
                   winners.isEmpty ? 'Partida finalizada.' : 'Ganador: $winners',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.amber),
+                  style: const TextStyle(
+                    color: TemaMesa.nogal,
+                    fontWeight: FontWeight.bold,
+                  ),
                 );
               }
               RoomPlayer? myPlayer;

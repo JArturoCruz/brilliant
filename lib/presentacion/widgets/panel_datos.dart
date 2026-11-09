@@ -4,6 +4,8 @@ import 'package:brilliant/bloc/juego_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../tema_mesa.dart';
+
 class PanelDados extends StatelessWidget {
   const PanelDados({
     super.key,
@@ -253,18 +255,18 @@ class _BotonDadoState extends State<_BotonDado>
 
   @override
   Widget build(BuildContext context) {
-    Color colorFondo = Colors.deepPurple.shade50;
-    Color colorBorde = Colors.deepPurple;
-    Color colorTexto = Colors.deepPurple;
+    Color colorFondo = TemaMesa.papelClaro;
+    Color colorBorde = TemaMesa.nogal;
+    Color colorTexto = TemaMesa.nogalOscuro;
 
     if (widget.esAncla) {
       colorFondo = Colors.yellow.shade100;
-      colorBorde = Colors.orange;
-      colorTexto = Colors.orange.shade800;
+      colorBorde = TemaMesa.dorado;
+      colorTexto = TemaMesa.nogalOscuro;
     } else if (widget.esColocar) {
       colorFondo = Colors.green.shade100;
-      colorBorde = Colors.green.shade700;
-      colorTexto = Colors.green.shade800;
+      colorBorde = TemaMesa.verde;
+      colorTexto = TemaMesa.verde;
     }
 
     return AnimatedBuilder(

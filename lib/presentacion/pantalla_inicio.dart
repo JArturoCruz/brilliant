@@ -6,6 +6,7 @@ import 'pantalla_cuenta.dart';
 import 'pantalla_instrucciones.dart';
 import 'pantalla_multijugador.dart';
 import 'seleccion_mapa/pantalla_seleccion_mapa.dart';
+import 'tema_mesa.dart';
 
 class PantallaInicio extends StatefulWidget {
   const PantallaInicio({this.authGateway, this.multiplayerClient, super.key});
@@ -113,27 +114,108 @@ class _PantallaInicioState extends State<PantallaInicio> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 16),
-                      Text(
-                        'Brilliant',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.displayMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Completa zonas, sigue sus reglas y compite por '
-                        'las mejores puntuaciones.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.94, end: 1),
+                        duration: const Duration(milliseconds: 650),
+                        curve: Curves.easeOutBack,
+                        builder: (context, scale, child) =>
+                            Transform.scale(scale: scale, child: child),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 28,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [TemaMesa.verde, Color(0xFF294D32)],
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: TemaMesa.dorado,
+                              width: 3,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x33402C20),
+                                blurRadius: 16,
+                                offset: Offset(0, 7),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  color: TemaMesa.papelClaro,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: TemaMesa.dorado,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.casino_rounded,
+                                  size: 38,
+                                  color: TemaMesa.nogal,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Brilliant',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: TemaMesa.papelClaro,
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Una partida de ingenio y estrategia',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFFF0DFC0),
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       if (_isLoading)
-                        const Center(child: CircularProgressIndicator())
+                        const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: IndicadorCargaMesa(
+                            mensaje: 'Preparando tu mesa...',
+                          ),
+                        )
                       else if (_user == null) ...[
-                        Text(
-                          _sessionError ??
-                              'Crea una cuenta o inicia sesión para jugar.',
-                          textAlign: TextAlign.center,
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  _sessionError == null
+                                      ? Icons.auto_awesome
+                                      : Icons.cloud_off_outlined,
+                                  color: TemaMesa.verde,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _sessionError ?? 'Crea una cuenta o inicia sesión para jugar.',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         if (_canRetrySession)
                           TextButton.icon(
@@ -144,20 +226,37 @@ class _PantallaInicioState extends State<PantallaInicio> {
                           ),
                         const SizedBox(height: 16),
                       ] else ...[
-                        Text(
-                          '¡Hola, ${_user!.name}!',
-                          key: const Key('welcome-user-name'),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.account_circle,
+                                  color: TemaMesa.verde,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    '¡Hola, ${_user!.name}!',
+                                    key: const Key('welcome-user-name'),
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                           onPressed: _openInstructions,
                           icon: const Icon(Icons.menu_book_outlined),
                           label: const Text('Instrucciones'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
                         ),
                         const SizedBox(height: 12),
                       ],
@@ -168,9 +267,6 @@ class _PantallaInicioState extends State<PantallaInicio> {
                           _user == null
                               ? 'Crear cuenta o iniciar sesión'
                               : 'Mi cuenta',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                       if (_user != null) ...[

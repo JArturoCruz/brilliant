@@ -39,10 +39,11 @@ class PantallaSeleccionMapa extends StatelessWidget {
               crossAxisCount: MediaQuery.sizeOf(context).width >= 600 ? 2 : 1,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 2.4,
+              childAspectRatio: 1.65,
               children: [
                 for (final mapa in mapas)
                   TarjetaMapa(
+                    mapa: mapa.mapa!,
                     nombre: mapa.nombre,
                     descripcion: mapa.descripcion,
                     disponible: mapa.disponible,
@@ -66,11 +67,9 @@ class PantallaSeleccionMapa extends StatelessWidget {
 }
 
 class _MapaDisponible {
-  const _MapaDisponible({
-    required this.nombre,
-    required this.descripcion,
-  }) : mapa = null,
-       disponible = false;
+  const _MapaDisponible({required this.nombre, required this.descripcion})
+    : mapa = null,
+      disponible = false;
 
   _MapaDisponible.disponible({
     required MapaTablero mapa,

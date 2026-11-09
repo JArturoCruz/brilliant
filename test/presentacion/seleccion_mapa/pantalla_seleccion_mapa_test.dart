@@ -1,4 +1,5 @@
 import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
+import 'package:brilliant/presentacion/seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/widgets/tarjeta_mapa.dart';
 import 'package:brilliant/presentacion/pantalla_juego.dart';
 import 'package:brilliant/presentacion/widgets/tablero_widget.dart';
@@ -6,9 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('muestra cuatro mapas y habilita los cuatro', (
-    tester,
-  ) async {
+  testWidgets('muestra cuatro mapas y habilita los cuatro', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: PantallaSeleccionMapa()));
 
     expect(find.text('Mapa 1'), findsOneWidget);
@@ -16,6 +15,7 @@ void main() {
     expect(find.text('Mapa 3'), findsOneWidget);
     expect(find.text('Mapa 4'), findsOneWidget);
     expect(find.text('Disponible'), findsNWidgets(4));
+    expect(find.byType(VistaPreviaMapa), findsNWidgets(4));
     expect(find.text('Próximamente'), findsNothing);
 
     final tarjetas = tester.widgetList<TarjetaMapa>(find.byType(TarjetaMapa));

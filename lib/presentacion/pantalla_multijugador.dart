@@ -7,6 +7,7 @@ import '../datos/autenticacion/auth_client.dart';
 import '../datos/multijugador/multiplayer_client.dart';
 import '../dominio/mapa_tablero.dart';
 import 'pantalla_juego.dart';
+import 'tema_mesa.dart';
 
 class PantallaMultijugador extends StatefulWidget {
   const PantallaMultijugador({required this.user, this.client, super.key});
@@ -311,7 +312,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         ),
         body: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const IndicadorCargaMesa(mensaje: 'Preparando el lobby...')
               : LayoutBuilder(
                   builder: (context, _) => Center(
                     child: ConstrainedBox(

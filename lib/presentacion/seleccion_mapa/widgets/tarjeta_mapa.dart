@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../dominio/mapa_tablero.dart';
+import '../../tema_mesa.dart';
+import 'vista_previa_mapa.dart';
+
 class TarjetaMapa extends StatelessWidget {
   const TarjetaMapa({
     super.key,
+    required this.mapa,
     required this.nombre,
     required this.descripcion,
     required this.disponible,
     required this.onTap,
   });
 
+  final MapaTablero mapa;
   final String nombre;
   final String descripcion;
   final bool disponible;
@@ -16,45 +22,54 @@ class TarjetaMapa extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = disponible ? Colors.amber : Colors.grey;
+    final color = disponible ? TemaMesa.verde : Colors.grey;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Icon(
-                disponible ? Icons.map_outlined : Icons.lock_outline,
-                color: color,
-                size: 32,
-              ),
+              SizedBox(width: 104, child: VistaPreviaMapa(mapa: mapa)),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      nombre,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: disponible ? null : Colors.grey,
-                      ),
+                    Row(
+                      children: [
+                        Icon(Icons.map_outlined, color: color, size: 20),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            nombre,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: disponible ? null : Colors.grey,
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       descripcion,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: color),
                     ),
                   ],
                 ),
               ),
               if (disponible)
-                const Icon(Icons.chevron_right, color: Colors.amber),
+                const Icon(Icons.chevron_right, color: TemaMesa.nogal),
             ],
           ),
         ),

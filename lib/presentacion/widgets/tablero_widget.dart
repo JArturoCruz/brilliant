@@ -8,6 +8,7 @@ import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/posicion.dart';
 import '../../dominio/mapa_tablero.dart';
 import '../../dominio/topologia_tablero.dart';
+import '../tema_mesa.dart';
 import 'celda_tablero_widget.dart';
 
 /// Arma la cuadrícula 7x7 a partir de TopologiaTablero. Su única
@@ -23,10 +24,18 @@ class TableroWidget extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 1,
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(12),
+          color: TemaMesa.nogal,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: TemaMesa.nogalOscuro, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33402C20),
+              blurRadius: 12,
+              offset: Offset(0, 5),
+            ),
+          ],
         ),
         // 1. Escuchamos al JuegoBloc para saber el estado de la partida (iluminación, dados)
         child: BlocBuilder<JuegoBloc, JuegoState>(

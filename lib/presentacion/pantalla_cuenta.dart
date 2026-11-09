@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../datos/autenticacion/auth_client.dart';
+import 'tema_mesa.dart';
 
 class PantallaCuenta extends StatefulWidget {
   const PantallaCuenta({
@@ -182,10 +183,10 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   child: _isLoading
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(),
+                      ? const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: IndicadorCargaMesa(
+                            mensaje: 'Cargando tu cuenta...',
                           ),
                         )
                       : _user == null

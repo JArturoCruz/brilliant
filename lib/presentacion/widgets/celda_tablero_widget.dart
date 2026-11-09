@@ -3,11 +3,13 @@ import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/casilla.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/mapa_tablero.dart';
 import '../../dominio/posicion.dart';
 import '../../dominio/region.dart';
 import '../../dominio/topologia_tablero.dart';
+import '../tema_mesa.dart';
 
 /// Una sola celda del tablero: su único trabajo es pintarse según su
 /// región y reaccionar al toque cuando pertenece a la ZonaInicial. No
@@ -28,18 +30,20 @@ class CeldaTableroWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final region =
-        TopologiaTablero.regionDeCelda(
-          posicion.fila,
-          posicion.columna,
-          mapa: mapa,
-        );
-    final color = region == null
-        ? Colors.grey.shade800
-        : mapa.tipoDe(region).color;
+    final region = TopologiaTablero.regionDeCelda(
+      posicion.fila,
+      posicion.columna,
+      mapa: mapa,
+    );
+    final regionColor = region == null ? null : mapa.tipoDe(region).color;
+    final color = regionColor == null
+        ? TemaMesa.papel
+        : Color.lerp(regionColor, TemaMesa.papel, 0.16)!;
     final colorTexto = region == RegionTablero.blanca
-        ? Colors.black
-        : Colors.white;
+        ? TemaMesa.tinta
+        : color.computeLuminance() > 0.24
+        ? TemaMesa.tinta
+        : TemaMesa.papelClaro;
 
     final esInicial = state.valores.containsKey(posicion);
     final seleccionada = state.seleccionada == posicion;
@@ -50,7 +54,8 @@ class CeldaTableroWidget extends StatelessWidget {
     return BlocBuilder<JuegoBloc, JuegoState>(
       builder: (context, juegoState) {
         // Verificamos si esta celda específica es la que está en espera de confirmación
-        final esProvisionalActual = juegoState.fase == FaseTurno.confirmandoJugada &&
+        final esProvisionalActual =
+            juegoState.fase == FaseTurno.confirmandoJugada &&
             juegoState.filaProvisional == posicion.fila &&
             juegoState.columnaProvisional == posicion.columna;
         final esAnclaSeleccionada =
@@ -77,7 +82,7 @@ class CeldaTableroWidget extends StatelessWidget {
             key: ValueKey('confirmado-${casillaJuego!.valorActual}'),
             child: _texto('${casillaJuego!.valorActual}', colorTexto),
           );
-        } 
+        }
         // Si no ha iniciado, mantenemos tu lógica de la configuración inicial
         else if (valorInicial != null) {
           contenido = KeyedSubtree(
@@ -105,10 +110,10 @@ class CeldaTableroWidget extends StatelessWidget {
 
         // Si está en fase provisional, le ponemos un borde especial (ej. ámbar o blanco intermitente)
         if (esProvisionalActual) {
-          bordeActual = Border.all(color: Colors.amberAccent, width: 4);
+          bordeActual = Border.all(color: TemaMesa.nogalOscuro, width: 3);
           sombraActual = [
             BoxShadow(
-              color: Colors.amberAccent.withAlpha(160),
+              color: TemaMesa.dorado.withAlpha(150),
               blurRadius: 12,
               spreadRadius: 2,
             ),
@@ -116,33 +121,37 @@ class CeldaTableroWidget extends StatelessWidget {
         }
         // Si la casilla está iluminada por las reglas del juego (posible ancla)
         else if (casillaJuego?.iluminacion == EstadoIluminacion.posibleAncla) {
-          bordeActual = Border.all(color: Colors.yellowAccent, width: 4);
+          bordeActual = Border.all(color: TemaMesa.dorado, width: 3);
           sombraActual = [
             BoxShadow(
-              color: Colors.yellowAccent.withAlpha(160),
+              color: TemaMesa.dorado.withAlpha(140),
               blurRadius: 12,
               spreadRadius: 2,
             ),
           ];
-        } 
+        }
         // Si la casilla está iluminada para colocar el segundo dado
-        else if (casillaJuego?.iluminacion == EstadoIluminacion.posibleColocacion) {
-          bordeActual = Border.all(color: Colors.greenAccent, width: 4);
+        else if (casillaJuego?.iluminacion ==
+            EstadoIluminacion.posibleColocacion) {
+          bordeActual = Border.all(color: TemaMesa.verde, width: 3);
           sombraActual = [
             BoxShadow(
-              color: Colors.greenAccent.withAlpha(160),
+              color: TemaMesa.verde.withAlpha(130),
               blurRadius: 12,
               spreadRadius: 2,
             ),
           ];
-        } 
+        }
         // Si no está iluminada por el juego, aplicamos tu lógica original de zona inicial
         else if (esInicial) {
-          bordeActual = Border.all(color: Colors.white, width: seleccionada ? 4 : 2);
+          bordeActual = Border.all(
+            color: TemaMesa.papelClaro,
+            width: seleccionada ? 4 : 2,
+          );
           if (seleccionada) {
             sombraActual = [
               BoxShadow(
-                color: Colors.white.withAlpha(160),
+                color: TemaMesa.nogalOscuro.withAlpha(140),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -154,15 +163,17 @@ class CeldaTableroWidget extends StatelessWidget {
           padding: const EdgeInsets.all(3),
           child: GestureDetector(
             onTap: esInicial && !state.iniciada
-                ? () => context.read<ZonaInicialCubit>().seleccionarCelda(posicion)
+                ? () => context.read<ZonaInicialCubit>().seleccionarCelda(
+                    posicion,
+                  )
                 : null,
             child: AnimatedScale(
               scale: esAnclaSeleccionada
                   ? 1.12
                   : casillaJuego?.iluminacion ==
-                          EstadoIluminacion.posibleColocacion
-                      ? 1.035
-                      : 1,
+                        EstadoIluminacion.posibleColocacion
+                  ? 1.035
+                  : 1,
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutBack,
               child: AnimatedContainer(
@@ -171,7 +182,7 @@ class CeldaTableroWidget extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(7),
                   border: bordeActual,
                   boxShadow: sombraActual,
                 ),
@@ -198,11 +209,11 @@ class CeldaTableroWidget extends StatelessWidget {
   }
 
   Widget _texto(String s, Color c) => Padding(
-        padding: const EdgeInsets.all(4),
-        child: FittedBox(
-          child: _TextoCasilla(texto: s, color: c),
-        ),
-      );
+    padding: const EdgeInsets.all(4),
+    child: FittedBox(
+      child: _TextoCasilla(texto: s, color: c),
+    ),
+  );
 }
 
 class _TextoCasilla extends StatelessWidget {

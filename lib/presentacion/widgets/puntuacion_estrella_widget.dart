@@ -2,8 +2,6 @@ import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-
 /// Widget que muestra la puntuación total actual dentro de un contenedor en forma de estrella
 /// con un diseño limpio, moderno y animado.
 class PuntuacionEstrellaWidget extends StatelessWidget {
