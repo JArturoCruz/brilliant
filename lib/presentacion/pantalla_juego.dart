@@ -54,6 +54,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _isPolling = false;
   bool _isBusy = false;
   bool _allowPop = false;
+  bool _resultsDialogShown = false;
   int? _lastSynchronizedRevision;
 
   bool get _isMultiplayer =>
@@ -97,6 +98,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         _room = room;
         _remoteError = null;
       });
+      _showResultsIfFinished(room);
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
       setState(() => _remoteError = error.userMessage);
@@ -247,6 +249,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         _room = room;
         _remoteError = null;
       });
+      _showResultsIfFinished(room);
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
       setState(() => _remoteError = error.userMessage);
@@ -258,7 +261,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     }
   }
 
-  Future<void> _leaveMultiplayerGame() async {
+  Future<void> _leaveMultiplayerGame({bool returnToLobby = false}) async {
     final room = _room;
     if (room == null || _isBusy) return;
     setState(() {
@@ -281,10 +284,35 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         _allowPop = true;
         widget.onRoomLeft?.call(error.message);
         Navigator.of(context).maybePop();
+      } else if (returnToLobby) {
+        _allowPop = true;
+        widget.onRoomLeft?.call(error.userMessage);
+        Navigator.of(context).maybePop();
       }
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
+  }
+
+  void _showResultsIfFinished(RoomSnapshot room) {
+    if (room.phase != 'finished' || _resultsDialogShown || !mounted) return;
+    _resultsDialogShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => _PartidaFinalizadaDialog(
+            room: room,
+            onReturnToLobby: () {
+              Navigator.of(dialogContext).pop();
+              _leaveMultiplayerGame(returnToLobby: true);
+            },
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -617,6 +645,7 @@ class _PanelPartida extends StatelessWidget {
                   style: TextStyle(color: TemaMesa.nogal),
                 );
               }
+
               if (juegoState.fase == FaseTurno.inicio) {
                 RoomPlayer? myPlayer;
                 for (final player in room?.players ?? const <RoomPlayer>[]) {
@@ -686,4 +715,119 @@ class _PanelPartida extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PartidaFinalizadaDialog extends StatelessWidget {
+  const _PartidaFinalizadaDialog({
+    required this.room,
+    required this.onReturnToLobby,
+  });
+
+  final RoomSnapshot room;
+  final VoidCallback onReturnToLobby;
+
+  @override
+  Widget build(BuildContext context) {
+    final winners = room.winners
+        .map((id) => room.playerName(id))
+        .whereType<String>()
+        .toList(growable: false);
+    final ranking = [...room.players]
+      ..sort((first, second) => second.score.compareTo(first.score));
+
+    return AlertDialog(
+      key: const Key('multiplayer-results-dialog'),
+      icon: const Icon(
+        Icons.emoji_events_rounded,
+        color: TemaMesa.dorado,
+        size: 42,
+      ),
+      title: Text(
+        winners.isEmpty
+            ? 'Partida finalizada'
+            : winners.length == 1
+            ? '¡Ganó ${winners.single}!'
+            : '¡Empate!',
+        textAlign: TextAlign.center,
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (winners.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    winners.join(', '),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              Text(
+                _finishMessage(room.finishReason),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Puntuaciones finales',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              for (var index = 0; index < ranking.length; index++)
+                Card(
+                  margin: const EdgeInsets.symmetric(vertical: 3),
+                  color: room.winners.contains(ranking[index].id)
+                      ? const Color(0xFFFFF3D6)
+                      : null,
+                  child: ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      backgroundColor: room.winners.contains(ranking[index].id)
+                          ? TemaMesa.dorado
+                          : TemaMesa.papel,
+                      foregroundColor: TemaMesa.nogalOscuro,
+                      child: Text('${index + 1}'),
+                    ),
+                    title: Text(
+                      ranking[index].name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: ranking[index].forfeited
+                        ? const Text('Abandonó la partida')
+                        : null,
+                    trailing: Text(
+                      '${ranking[index].score} pts',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        FilledButton.icon(
+          key: const Key('finished-return-to-lobby'),
+          onPressed: onReturnToLobby,
+          icon: const Icon(Icons.home_rounded),
+          label: const Text('Regresar al lobby'),
+        ),
+      ],
+    );
+  }
+
+  String _finishMessage(String? reason) => switch (reason) {
+    'score' => 'Se alcanzó la puntuación objetivo.',
+    'host_forfeit' ||
+    'host_disconnected' => 'El anfitrión abandonó o perdió la conexión.',
+    'player_forfeit' || 'player_disconnected' =>
+      'La partida terminó tras la salida o desconexión de un jugador.',
+    'no_moves' => 'No hubo más jugadas válidas; ganó la puntuación más alta.',
+    _ => 'Gracias por jugar.',
+  };
 }

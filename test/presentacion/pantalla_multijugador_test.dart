@@ -43,6 +43,9 @@ void main() {
     String? playedPlayerId,
     Map<String, int>? regionCounters,
     bool ready = false,
+    List<int> scores = const [],
+    List<String> winners = const [],
+    String? finishReason,
   }) => {
     'code': 'ABC234',
     'mapId': 1,
@@ -55,9 +58,9 @@ void main() {
         'name': index == 0 ? 'Jugador Uno' : 'Jugador Dos',
         'isHost': index == 0,
         'connected': true,
-        'score': 0,
+        'score': index < scores.length ? scores[index] : 0,
         'forfeited': false,
-        'isWinner': false,
+        'isWinner': winners.contains(id),
         'ready': ready,
         'playedThisRound': id == playedPlayerId,
       };
@@ -67,8 +70,8 @@ void main() {
     'round': round,
     'scoreToWin': 0,
     'revision': revision,
-    'winners': <String>[],
-    'finishReason': null,
+    'winners': winners,
+    'finishReason': finishReason,
     'events': [
       {
         'id': 'event-1',
@@ -365,4 +368,80 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('shows final multiplayer results and returns to the lobby', (
+    tester,
+  ) async {
+    final requests = <String>[];
+    final client = clientWith((request) async {
+      requests.add('${request.method} ${request.url.path}');
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.url.path.endsWith('/join')) {
+        return http.Response(
+          jsonEncode(roomJson(players: 2, phase: 'playing', ready: true)),
+          200,
+        );
+      }
+      if (request.method == 'GET' && request.url.path.endsWith('/ABC234')) {
+        return http.Response(
+          jsonEncode(
+            roomJson(
+              players: 2,
+              phase: 'finished',
+              revision: 5,
+              scores: [30, 22],
+              winners: ['player-1'],
+              finishReason: 'score',
+            ),
+          ),
+          200,
+        );
+      }
+      if (request.method == 'POST' && request.url.path.endsWith('/leave')) {
+        return http.Response(
+          jsonEncode({'dissolved': false, 'message': 'Saliste de la sala.'}),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('invite-code-input')),
+      'abc234',
+    );
+    await tester.tap(find.byKey(const Key('join-room-by-code')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(find.byKey(const Key('multiplayer-results-dialog')), findsOneWidget);
+    expect(find.text('¡Ganó Jugador Uno!'), findsOneWidget);
+    expect(find.text('Puntuaciones finales'), findsOneWidget);
+    expect(find.text('30 pts'), findsOneWidget);
+    expect(find.text('22 pts'), findsOneWidget);
+    expect(find.text('Se alcanzó la puntuación objetivo.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('finished-return-to-lobby')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(find.byKey(const Key('multiplayer-results-dialog')), findsNothing);
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(requests, contains('POST /api/multiplayer/rooms/ABC234/leave'));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
