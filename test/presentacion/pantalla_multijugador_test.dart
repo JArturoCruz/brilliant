@@ -40,6 +40,7 @@ void main() {
     String phase = 'waiting',
     int revision = 1,
     int round = 1,
+    bool currentPlayerForfeited = false,
     List<List<int?>>? board,
     List<int>? dice,
     String? playedPlayerId,
@@ -61,7 +62,7 @@ void main() {
         'isHost': index == 0,
         'connected': true,
         'score': index < scores.length ? scores[index] : 0,
-        'forfeited': false,
+        'forfeited': index == 0 && currentPlayerForfeited,
         'isWinner': winners.contains(id),
         'ready': ready,
         'playedThisRound': id == playedPlayerId,
@@ -312,13 +313,112 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('Conexión interrumpida'), findsOneWidget);
+    expect(
+      find.textContaining('Se perdió la conexión con el servidor'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('wait-for-server')), findsOneWidget);
 
     await tester.tap(find.byTooltip('Actualizar'));
     await tester.pumpAndSettle();
 
     expect(find.text('Jugadores activos (2)'), findsOneWidget);
-    expect(find.textContaining('Conexión interrumpida'), findsNothing);
+    expect(
+      find.textContaining('Se perdió la conexión con el servidor'),
+      findsNothing,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('returns a player to the lobby after the server forfeits them', (
+    tester,
+  ) async {
+    final forfeitedRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      currentPlayerForfeited: true,
+    );
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.url.path.endsWith('/join')) {
+        return http.Response(jsonEncode(forfeitedRoom), 200);
+      }
+      if (request.url.path.endsWith('/ABC234')) {
+        return http.Response(jsonEncode(forfeitedRoom), 200);
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('invite-code-input')),
+      'abc234',
+    );
+    await tester.ensureVisible(find.byKey(const Key('join-room-by-code')));
+    await tester.tap(find.byKey(const Key('join-room-by-code')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(
+      find.textContaining('Se agotó el minuto sin conexión'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('queues leaving the room while the server is unreachable', (
+    tester,
+  ) async {
+    var online = false;
+    final requests = <String>[];
+    final client = clientWith((request) async {
+      requests.add('${request.method} ${request.url.path}');
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.method == 'POST' && request.url.path.endsWith('/rooms')) {
+        return http.Response(jsonEncode(roomJson()), 201);
+      }
+      if (request.url.path.endsWith('/leave')) {
+        if (!online) throw http.ClientException('offline');
+        return http.Response(
+          jsonEncode({'dissolved': false, 'message': 'Saliste de la sala.'}),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create-multiplayer-room')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('leave-multiplayer-room')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(
+      find.textContaining('salida está pendiente'),
+      findsAtLeastNWidgets(1),
+    );
+    expect(find.byKey(const Key('multiplayer-connection-lost')), findsNothing);
+    online = true;
+    await tester.tap(find.byTooltip('Actualizar'));
+    await tester.pumpAndSettle();
+
+    expect(requests.where((request) => request.endsWith('/leave')).length, 3);
+    expect(find.text('Saliste de la sala.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -331,6 +431,8 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       var latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
+      var moveAttempts = 0;
+      String? firstMoveCommandId;
       final client = clientWith((request) async {
         if (request.url.path.endsWith('/lobby')) {
           return http.Response(jsonEncode(lobbyJson()), 200);
@@ -366,6 +468,12 @@ void main() {
         }
         if (request.url.path.endsWith('/move')) {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
+          moveAttempts++;
+          if (moveAttempts == 1) {
+            firstMoveCommandId = body['commandId'] as String;
+            throw http.ClientException('offline');
+          }
+          expect(body['commandId'], firstMoveCommandId);
           expect(body['round'], 1);
           expect(body['anchorDieIndex'], 0);
           expect(body['anchor'], {'row': 3, 'column': 1});
@@ -437,6 +545,16 @@ void main() {
       expect(find.text('¿Confirmas colocar el 3?'), findsOneWidget);
       await tester.tap(find.text('Confirmar Jugada'));
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('multiplayer-connection-lost')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Tu jugada está pendiente'), findsOneWidget);
+      expect(find.byKey(const Key('wait-for-game-server')), findsOneWidget);
+      expect(find.byKey(const Key('leave-game-while-offline')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(moveAttempts, 2);
       expect(
         find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
         findsOneWidget,

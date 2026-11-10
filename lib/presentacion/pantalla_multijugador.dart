@@ -30,6 +30,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
   String? _error;
   String? _notice;
   String? _connectionMessage;
+  String? _pendingLeaveRoomCode;
   Position? _anchor;
   int _mapId = 1;
   int _anchorDieIndex = 0;
@@ -37,6 +38,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
   bool _isBusy = false;
   bool _isPolling = false;
   bool _gameScreenOpen = false;
+  bool _waitingForConnection = false;
 
   @override
   void initState() {
@@ -59,13 +61,39 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     try {
       final room = _room;
       if (room == null) {
+        final pendingLeaveRoomCode = _pendingLeaveRoomCode;
+        if (pendingLeaveRoomCode != null) {
+          try {
+            final result = await _client.leaveRoom(pendingLeaveRoomCode);
+            _pendingLeaveRoomCode = null;
+            if (mounted && result.message != null) {
+              setState(() => _notice = result.message);
+            }
+          } on MultiplayerApiException catch (error) {
+            if (error.code == 'ROOM_DISSOLVED' ||
+                error.code == 'ROOM_NOT_FOUND') {
+              _pendingLeaveRoomCode = null;
+              if (mounted) setState(() => _notice = error.message);
+            } else if (error.isConnectionFailure) {
+              if (mounted) {
+                setState(
+                  () => _connectionMessage = 'Se perdió la conexión con el servidor. Tu salida está pendiente; se volverá a intentar automáticamente.',
+                );
+              }
+              return;
+            } else {
+              rethrow;
+            }
+          }
+        }
         final lobby = await _client.lobby();
         if (mounted) {
           setState(() {
             _lobby = lobby;
             _isLoading = false;
-            if (_connectionMessage != null) _error = null;
+            _error = null;
             _connectionMessage = null;
+            _waitingForConnection = false;
           });
         }
       } else {
@@ -73,8 +101,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         if (mounted) {
           setState(() {
             _room = updatedRoom;
-            if (_connectionMessage != null) _error = null;
+            _error = null;
             _connectionMessage = null;
+            _waitingForConnection = false;
             if (updatedRoom.revision != room.revision) _anchor = null;
           });
           _openGameIfStarted(updatedRoom);
@@ -85,12 +114,13 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         setState(() {
           _isLoading = false;
           _error = error.userMessage;
-          _connectionMessage = error.statusCode == null
-              ? 'Conexión interrumpida. Reintentando; vuelve en menos de 60 segundos para evitar conceder la partida.'
+          _connectionMessage = error.isConnectionFailure
+              ? 'Se perdió la conexión con el servidor. Puedes esperar a que vuelva o salir de la sala. Se reintentará automáticamente.'
               : null;
           if (error.code == 'ROOM_DISSOLVED' ||
               error.code == 'ROOM_NOT_FOUND') {
             _room = null;
+            _pendingLeaveRoomCode = null;
             _anchor = null;
             _error = null;
             _connectionMessage = null;
@@ -184,6 +214,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                   _notice = message;
                 });
               },
+              onRoomLeftOffline: () {
+                _pendingLeaveRoomCode = room.code;
+              },
             ),
           ),
         )
@@ -218,10 +251,23 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
             result.message ??
             (result.dissolved ? 'La sala se cerró.' : 'Saliste de la sala.');
         _connectionMessage = null;
+        _pendingLeaveRoomCode = null;
       });
       await _refresh();
     } on MultiplayerApiException catch (error) {
-      if (mounted) setState(() => _error = error.userMessage);
+      if (!mounted) return;
+      if (error.isConnectionFailure) {
+        setState(() {
+          _pendingLeaveRoomCode = room.code;
+          _room = null;
+          _anchor = null;
+          _notice = 'Tu salida está pendiente y se completará al reconectar.';
+          _connectionMessage = 'Se perdió la conexión con el servidor. Tu salida se reintentará automáticamente.';
+        });
+        await _refresh();
+      } else {
+        setState(() => _error = error.userMessage);
+      }
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
@@ -276,6 +322,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     await _runRoomAction(
       () => _client.playMove(
         code: room.code,
+        commandId: _client.newCommandId(),
         round: room.round,
         anchorDieIndex: _anchorDieIndex,
         anchorRow: currentAnchor.row,
@@ -325,8 +372,26 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                           children: [
                             if (_connectionMessage != null)
                               _statusBanner(
-                                _connectionMessage!,
+                                _waitingForConnection
+                                    ? 'Esperando que vuelva la conexión con el servidor. Reintento automático activo.'
+                                    : _connectionMessage!,
                                 icon: Icons.wifi_off,
+                                actions: [
+                                  if (!_waitingForConnection)
+                                    TextButton(
+                                      key: const Key('wait-for-server'),
+                                      onPressed: () => setState(
+                                        () => _waitingForConnection = true,
+                                      ),
+                                      child: const Text('Seguir esperando'),
+                                    ),
+                                  if (_room != null)
+                                    TextButton(
+                                      key: const Key('leave-while-offline'),
+                                      onPressed: _isBusy ? null : _leaveRoom,
+                                      child: const Text('Salir de la sala'),
+                                    ),
+                                ],
                               ),
                             if (_error != null)
                               _statusBanner(_error!, isError: true),
@@ -690,17 +755,25 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     String message, {
     IconData icon = Icons.error_outline,
     bool isError = false,
+    List<Widget> actions = const [],
   }) => Card(
     color: isError
         ? Theme.of(context).colorScheme.errorContainer
         : Theme.of(context).colorScheme.surfaceContainerHighest,
     child: Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message)),
+          Row(
+            children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          if (actions.isNotEmpty)
+            Wrap(alignment: WrapAlignment.end, children: actions),
         ],
       ),
     ),

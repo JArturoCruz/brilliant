@@ -16,6 +16,8 @@ class MultiplayerApiException implements Exception {
   final String? requestId;
   final int? statusCode;
 
+  bool get isConnectionFailure => statusCode == null || statusCode! >= 500;
+
   String get userMessage => requestId == null
       ? message
       : '$message\nCódigo de referencia: $requestId';
@@ -293,6 +295,7 @@ class MultiplayerClient {
 
   Future<RoomSnapshot> playMove({
     required String code,
+    required String commandId,
     required int round,
     required int anchorDieIndex,
     required int anchorRow,
@@ -308,7 +311,7 @@ class MultiplayerClient {
         'anchorDieIndex': anchorDieIndex,
         'anchor': {'row': anchorRow, 'column': anchorColumn},
         'destination': {'row': destinationRow, 'column': destinationColumn},
-        'commandId': _newCommandId(),
+        'commandId': commandId,
       },
     ),
   );
@@ -351,6 +354,8 @@ class MultiplayerClient {
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
         '${hex.substring(20)}';
   }
+
+  String newCommandId() => _newCommandId();
 }
 
 Map<String, dynamic> _object(Object? value) {

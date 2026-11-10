@@ -33,6 +33,7 @@ class PantallaJuego extends StatefulWidget {
     this.multiplayerUser,
     this.roomCode,
     this.onRoomLeft,
+    this.onRoomLeftOffline,
   });
 
   final MapaTablero mapa;
@@ -40,6 +41,7 @@ class PantallaJuego extends StatefulWidget {
   final AuthUser? multiplayerUser;
   final String? roomCode;
   final ValueChanged<String>? onRoomLeft;
+  final VoidCallback? onRoomLeftOffline;
 
   @override
   State<PantallaJuego> createState() => _PantallaJuegoState();
@@ -55,8 +57,11 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _isBusy = false;
   bool _allowPop = false;
   bool _returningToLobby = false;
+  bool _connectionLost = false;
+  bool _waitingForConnection = false;
   bool _resultsDialogShown = false;
   int? _lastSynchronizedRevision;
+  Future<RoomSnapshot> Function()? _pendingMoveRetry;
 
   bool get _isMultiplayer =>
       widget.multiplayerClient != null &&
@@ -91,24 +96,45 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       return;
     }
     _isPolling = true;
+    Future<RoomSnapshot> Function()? pendingMove;
     try {
       final room = await _multiplayerClient.getRoom(widget.roomCode!);
       if (!mounted) return;
+      RoomPlayer? currentPlayer;
+      for (final player in room.players) {
+        if (player.id == _multiplayerUser.id) currentPlayer = player;
+      }
+      if (currentPlayer == null || currentPlayer.forfeited) {
+        _returnToLobby(
+          'Se agotó el minuto sin conexión y saliste de la partida. '
+          'Tus puntos y las zonas ya obtenidas se conservaron.',
+        );
+        return;
+      }
       _synchronizeRoom(room);
       setState(() {
         _room = room;
         _remoteError = null;
+        _connectionLost = false;
+        _waitingForConnection = false;
       });
       _showResultsIfFinished(room);
+      pendingMove = _pendingMoveRetry;
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
       if (error.code == 'ROOM_DISSOLVED' || error.code == 'ROOM_NOT_FOUND') {
         _returnToLobby(error.message);
       } else {
-        setState(() => _remoteError = error.userMessage);
+        setState(() {
+          _remoteError = error.userMessage;
+          _connectionLost = error.isConnectionFailure;
+        });
       }
     } finally {
       _isPolling = false;
+    }
+    if (pendingMove != null && mounted && !_isBusy) {
+      await _runRoomAction(pendingMove, isQueuedMove: true);
     }
   }
 
@@ -219,17 +245,20 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       );
       return;
     }
-    await _runRoomAction(
-      () => _multiplayerClient.playMove(
-        code: room.code,
-        anchorDieIndex: anchorDieIndex - 1,
-        round: room.round,
-        anchorRow: anchorRow,
-        anchorColumn: anchorColumn,
-        destinationRow: destinationRow,
-        destinationColumn: destinationColumn,
-      ),
+    if (_pendingMoveRetry != null) return;
+    final commandId = _multiplayerClient.newCommandId();
+    Future<RoomSnapshot> pendingMove() => _multiplayerClient.playMove(
+      code: room.code,
+      commandId: commandId,
+      anchorDieIndex: anchorDieIndex - 1,
+      round: room.round,
+      anchorRow: anchorRow,
+      anchorColumn: anchorColumn,
+      destinationRow: destinationRow,
+      destinationColumn: destinationColumn,
     );
+    _pendingMoveRetry = pendingMove;
+    await _runRoomAction(pendingMove, isQueuedMove: true);
   }
 
   Future<void> _skipTurn() async {
@@ -240,7 +269,10 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     );
   }
 
-  Future<void> _runRoomAction(Future<RoomSnapshot> Function() action) async {
+  Future<void> _runRoomAction(
+    Future<RoomSnapshot> Function() action, {
+    bool isQueuedMove = false,
+  }) async {
     if (_isBusy) return;
     setState(() {
       _isBusy = true;
@@ -253,11 +285,23 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       setState(() {
         _room = room;
         _remoteError = null;
+        _connectionLost = false;
+        _waitingForConnection = false;
+        if (isQueuedMove) _pendingMoveRetry = null;
       });
       _showResultsIfFinished(room);
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
-      setState(() => _remoteError = error.userMessage);
+      setState(() {
+        _remoteError = error.userMessage;
+        _connectionLost = error.isConnectionFailure;
+        if (isQueuedMove && !error.isConnectionFailure) {
+          _pendingMoveRetry = null;
+        }
+      });
+      if (error.code == 'PLAYER_FORFEITED') {
+        await _refreshMultiplayer(force: true);
+      }
       if (error.code == 'STALE_STATE' || error.code == 'STALE_ROUND') {
         await _refreshMultiplayer(force: true);
       }
@@ -284,6 +328,12 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       if (!mounted) return;
       if (error.code == 'ROOM_DISSOLVED' || error.code == 'ROOM_NOT_FOUND') {
         _returnToLobby(error.message);
+      } else if (error.isConnectionFailure) {
+        widget.onRoomLeftOffline?.call();
+        _returnToLobby(
+          'No se pudo avisar al servidor. Tu salida se registrará '
+          'automáticamente al reconectar.',
+        );
       } else if (returnToLobby) {
         _returnToLobby(error.userMessage);
       } else {
@@ -303,6 +353,50 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       if (mounted) Navigator.of(context).maybePop();
     });
   }
+
+  Widget _connectionNotice() => Card(
+    key: const Key('multiplayer-connection-lost'),
+    color: Theme.of(context).colorScheme.errorContainer,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _waitingForConnection
+                ? 'Esperando que vuelva la conexión con el servidor. '
+                      'Se reintentará automáticamente.'
+                : 'Se perdió la conexión con el servidor. '
+                      'Puedes esperar o salir de la sala.',
+          ),
+          if (_pendingMoveRetry != null)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Tu jugada está pendiente y se enviará automáticamente '
+                'al reconectar.',
+              ),
+            ),
+          Wrap(
+            alignment: WrapAlignment.end,
+            children: [
+              if (!_waitingForConnection)
+                TextButton(
+                  key: const Key('wait-for-game-server'),
+                  onPressed: () => setState(() => _waitingForConnection = true),
+                  child: const Text('Seguir esperando'),
+                ),
+              TextButton(
+                key: const Key('leave-game-while-offline'),
+                onPressed: _isBusy ? null : _leaveMultiplayerGame,
+                child: const Text('Salir de la sala'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 
   void _showResultsIfFinished(RoomSnapshot room) {
     if (room.phase != 'finished' || _resultsDialogShown || !mounted) return;
@@ -428,79 +522,99 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 800) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
-                    child: Column(
-                      children: [
-                        const InstruccionZonaInicial(),
-                        const SizedBox(height: 16),
-                        _TableroConPuntuaciones(
-                          mapa: widget.mapa,
-                          altoDisponible: constraints.maxHeight - 100,
-                          enVertical: constraints.maxWidth < 600,
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_connectionLost) _connectionNotice(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 500),
+                          child: Column(
+                            children: [
+                              const InstruccionZonaInicial(),
+                              const SizedBox(height: 16),
+                              _TableroConPuntuaciones(
+                                mapa: widget.mapa,
+                                altoDisponible:
+                                    constraints.maxHeight -
+                                    (_connectionLost ? 160 : 100),
+                                enVertical: constraints.maxWidth < 600,
+                              ),
+                              const SizedBox(height: 24),
+                              _PanelPartida(
+                                tablero: tablero,
+                                compacto: true,
+                                multiplayer: _isMultiplayer,
+                                room: _room,
+                                currentUserId: widget.multiplayerUser?.id,
+                                isBusy: _isBusy || _pendingMoveRetry != null,
+                                onStart: _submitInitialBoard,
+                                onConfirmMove: _submitMove,
+                                onSkipTurn: _skipTurn,
+                                errorMessage: _remoteError,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 24),
-                        _PanelPartida(
-                          tablero: tablero,
-                          compacto: true,
-                          multiplayer: _isMultiplayer,
-                          room: _room,
-                          currentUserId: widget.multiplayerUser?.id,
-                          isBusy: _isBusy,
-                          onStart: _submitInitialBoard,
-                          onConfirmMove: _submitMove,
-                          onSkipTurn: _skipTurn,
-                          errorMessage: _remoteError,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_connectionLost) _connectionNotice(),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Center(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const InstruccionZonaInicial(),
+                                  const SizedBox(height: 16),
+                                  _TableroConPuntuaciones(
+                                    mapa: widget.mapa,
+                                    altoDisponible:
+                                        constraints.maxHeight -
+                                        (_connectionLost ? 100 : 0),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _PanelPartida(
+                            tablero: tablero,
+                            multiplayer: _isMultiplayer,
+                            room: _room,
+                            currentUserId: widget.multiplayerUser?.id,
+                            isBusy: _isBusy || _pendingMoveRetry != null,
+                            onStart: _submitInitialBoard,
+                            onConfirmMove: _submitMove,
+                            onSkipTurn: _skipTurn,
+                            errorMessage: _remoteError,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              );
-            }
-
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Center(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const InstruccionZonaInicial(),
-                            const SizedBox(height: 16),
-                            _TableroConPuntuaciones(
-                              mapa: widget.mapa,
-                              altoDisponible: constraints.maxHeight,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _PanelPartida(
-                      tablero: tablero,
-                      multiplayer: _isMultiplayer,
-                      room: _room,
-                      currentUserId: widget.multiplayerUser?.id,
-                      isBusy: _isBusy,
-                      onStart: _submitInitialBoard,
-                      onConfirmMove: _submitMove,
-                      onSkipTurn: _skipTurn,
-                      errorMessage: _remoteError,
-                    ),
-                  ),
-                ],
-              ),
+              ],
             );
           },
         ),
