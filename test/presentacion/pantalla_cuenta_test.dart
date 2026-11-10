@@ -99,6 +99,60 @@ void main() {
     expect(find.text('Sesión iniciada'), findsOneWidget);
   });
 
+  testWidgets('rejects special characters in username before registration', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('account-name')),
+      "Alex'; DROP TABLE user;--",
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-email')),
+      'player@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-password')),
+      'a-strong-password',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Usa solo letras, números, espacios, guiones o apóstrofes.'),
+      findsOneWidget,
+    );
+    expect(gateway.user, isNull);
+  });
+
+  testWidgets('allows accented names and special characters in passwords', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), "O'Connor");
+    await tester.enterText(
+      find.byKey(const Key('account-email')),
+      'player+test@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-password')),
+      'p@ss+word-123',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.user, isNotNull);
+    expect(find.text('Sesión iniciada'), findsOneWidget);
+  });
+
   testWidgets('requires password confirmation to delete account', (
     tester,
   ) async {

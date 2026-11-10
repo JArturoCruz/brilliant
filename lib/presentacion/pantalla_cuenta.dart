@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../datos/autenticacion/auth_client.dart';
 import 'tema_mesa.dart';
 
+final _usernamePattern = RegExp(
+  r"^[\p{L}\p{N}][\p{L}\p{M}\p{N}]*(?:[ '\u2019-][\p{L}\p{N}][\p{L}\p{M}\p{N}]*)*$",
+  unicode: true,
+);
+
 class PantallaCuenta extends StatefulWidget {
   const PantallaCuenta({
     required this.authGateway,
@@ -222,16 +227,21 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
               autofillHints: const [AutofillHints.name],
               decoration: const InputDecoration(
                 labelText: 'Nombre de usuario',
-                helperText: 'Debe ser único; otras personas no pueden usarlo.',
+                helperText:
+                    'Usa letras, números, espacios, guiones o apóstrofes.',
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
                 final name = value?.trim() ?? '';
-                if (_isRegistering && name.length < 2) {
+                final characterCount = name.runes.length;
+                if (_isRegistering && characterCount < 2) {
                   return 'Ingresa un nombre de usuario de al menos 2 caracteres.';
                 }
-                if (_isRegistering && name.length > 32) {
+                if (_isRegistering && characterCount > 32) {
                   return 'El nombre de usuario no puede superar 32 caracteres.';
+                }
+                if (_isRegistering && !_usernamePattern.hasMatch(name)) {
+                  return 'Usa solo letras, números, espacios, guiones o apóstrofes.';
                 }
                 return null;
               },
