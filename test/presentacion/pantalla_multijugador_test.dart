@@ -5,8 +5,10 @@ import 'package:brilliant/datos/multijugador/multiplayer_client.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/zona_inicial.dart';
 import 'package:brilliant/presentacion/pantalla_multijugador.dart';
+import 'package:brilliant/presentacion/seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
 import 'package:brilliant/presentacion/widgets/tablero_widget.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +101,37 @@ void main() {
       httpClient: MockClient(handler),
     ),
   );
+
+  testWidgets('updates the map preview when selecting a map', (tester) async {
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<VistaPreviaMapa>(find.byType(VistaPreviaMapa)).mapa,
+      MapaTablero.mapa1,
+    );
+
+    await tester.tap(find.byKey(const Key('multiplayer-map-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapa 3').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<VistaPreviaMapa>(find.byType(VistaPreviaMapa)).mapa,
+      MapaTablero.mapa3,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('creates a room from the authenticated lobby', (tester) async {
     final requests = <String>[];

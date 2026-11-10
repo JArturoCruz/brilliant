@@ -7,6 +7,7 @@ import '../datos/autenticacion/auth_client.dart';
 import '../datos/multijugador/multiplayer_client.dart';
 import '../dominio/mapa_tablero.dart';
 import 'pantalla_juego.dart';
+import 'seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'tema_mesa.dart';
 
 class PantallaMultijugador extends StatefulWidget {
@@ -371,20 +372,31 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         const Divider(height: 32),
         Text('Crear una sala', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          key: const Key('multiplayer-map-selector'),
-          initialValue: _mapId,
-          decoration: const InputDecoration(labelText: 'Mapa'),
-          items: List.generate(
-            4,
-            (index) => DropdownMenuItem(
-              value: index + 1,
-              child: Text('Mapa ${index + 1}'),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: const Key('multiplayer-map-selector'),
+                initialValue: _mapId,
+                decoration: const InputDecoration(labelText: 'Mapa'),
+                items: List.generate(
+                  4,
+                  (index) => DropdownMenuItem(
+                    value: index + 1,
+                    child: Text('Mapa ${index + 1}'),
+                  ),
+                ),
+                onChanged: _isBusy
+                    ? null
+                    : (value) => setState(() => _mapId = value!),
+              ),
             ),
-          ),
-          onChanged: _isBusy
-              ? null
-              : (value) => setState(() => _mapId = value!),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 88,
+              child: VistaPreviaMapa(mapa: _mapForId(_mapId)),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
