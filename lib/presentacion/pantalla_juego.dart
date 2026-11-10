@@ -54,6 +54,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _isPolling = false;
   bool _isBusy = false;
   bool _allowPop = false;
+  bool _returningToLobby = false;
   bool _resultsDialogShown = false;
   int? _lastSynchronizedRevision;
 
@@ -101,7 +102,11 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       _showResultsIfFinished(room);
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
-      setState(() => _remoteError = error.userMessage);
+      if (error.code == 'ROOM_DISSOLVED' || error.code == 'ROOM_NOT_FOUND') {
+        _returnToLobby(error.message);
+      } else {
+        setState(() => _remoteError = error.userMessage);
+      }
     } finally {
       _isPolling = false;
     }
@@ -271,27 +276,32 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     try {
       final result = await _multiplayerClient.leaveRoom(room.code);
       if (!mounted) return;
-      _allowPop = true;
-      widget.onRoomLeft?.call(
+      _returnToLobby(
         result.message ??
             (result.dissolved ? 'La sala se cerró.' : 'Saliste de la sala.'),
       );
-      Navigator.of(context).maybePop();
     } on MultiplayerApiException catch (error) {
       if (!mounted) return;
-      setState(() => _remoteError = error.userMessage);
       if (error.code == 'ROOM_DISSOLVED' || error.code == 'ROOM_NOT_FOUND') {
-        _allowPop = true;
-        widget.onRoomLeft?.call(error.message);
-        Navigator.of(context).maybePop();
+        _returnToLobby(error.message);
       } else if (returnToLobby) {
-        _allowPop = true;
-        widget.onRoomLeft?.call(error.userMessage);
-        Navigator.of(context).maybePop();
+        _returnToLobby(error.userMessage);
+      } else {
+        setState(() => _remoteError = error.userMessage);
       }
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
+  }
+
+  void _returnToLobby(String message) {
+    if (!mounted || _returningToLobby) return;
+    _returningToLobby = true;
+    setState(() => _allowPop = true);
+    widget.onRoomLeft?.call(message);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
   }
 
   void _showResultsIfFinished(RoomSnapshot room) {

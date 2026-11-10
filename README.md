@@ -29,9 +29,10 @@ Sign in and choose **Multijugador** from the start screen. Create a room or
 enter an invitation code; the host starts when 2–6 players are connected. The
 host selects the board map. Room state, dice, legal moves, scores, and the win
 condition are validated by the authenticated server. Players can leave at any
-time; leaving or failing to reconnect within 60 seconds concedes the game. A
-host leaving before the start closes the room, while leaving during a game
-awards the win to the remaining players.
+time. If the host leaves before or during initial setup, the room closes and
+everyone returns to the lobby. Once play begins, a leaving or disconnected
+player is removed while the game continues; their score and already-claimed
+region rewards are preserved.
 
 The client polls every two seconds and automatically retries after a network
 interruption. Multiplayer rooms currently live in server memory: restarting

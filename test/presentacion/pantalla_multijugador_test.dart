@@ -252,6 +252,50 @@ void main() {
     },
   );
 
+  testWidgets('returns setup players to the lobby when the host leaves', (
+    tester,
+  ) async {
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.url.path.endsWith('/join')) {
+        return http.Response(jsonEncode(roomJson(phase: 'setup')), 200);
+      }
+      if (request.url.path.endsWith('/ABC234')) {
+        return http.Response(
+          jsonEncode({
+            'code': 'ROOM_DISSOLVED',
+            'message': 'El anfitrión abandonó la sala antes de iniciar.',
+          }),
+          410,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('invite-code-input')),
+      'abc234',
+    );
+    await tester.ensureVisible(find.byKey(const Key('join-room-by-code')));
+    await tester.tap(find.byKey(const Key('join-room-by-code')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(
+      find.text('El anfitrión abandonó la sala antes de iniciar.'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('shows connection loss and recovers on retry', (tester) async {
     var failedOnce = false;
     final client = clientWith((request) async {
