@@ -16,6 +16,7 @@ class PanelDados extends StatelessWidget {
     this.turnMessage,
     this.waitingForRound = false,
     this.skipTurnLabel,
+    this.compact = false,
   });
 
   final bool isEnabled;
@@ -25,6 +26,7 @@ class PanelDados extends StatelessWidget {
   final String? turnMessage;
   final bool waitingForRound;
   final String? skipTurnLabel;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -72,20 +74,23 @@ class PanelDados extends StatelessWidget {
               Text(
                 turnMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: compact ? 13 : null,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 4 : 8),
             ],
             if (mensaje.isNotEmpty) ...[
               Text(
                 mensaje,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: compact ? 14 : 16,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: compact ? 6 : 12),
             ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -96,6 +101,7 @@ class PanelDados extends StatelessWidget {
                   rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
+                  compacto: compact,
                   onTap: permitirCambioDado && isEnabled
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
@@ -106,13 +112,14 @@ class PanelDados extends StatelessWidget {
                         )
                       : null,
                 ),
-                const SizedBox(width: 32),
+                SizedBox(width: compact ? 20 : 32),
                 _BotonDado(
                   key: const ValueKey('dado-2'),
                   valor: state.dado2!,
                   rollId: state.historial.length,
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
+                  compacto: compact,
                   onTap: permitirCambioDado && isEnabled
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
@@ -125,7 +132,7 @@ class PanelDados extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 6 : 12),
             // Opción de Saltar Turno durante la fase activa
             if (permitirCambioDado)
               TextButton.icon(
@@ -137,6 +144,12 @@ class PanelDados extends StatelessWidget {
                 label: Text(skipTurnLabel ?? 'Saltar Turno'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.grey.shade400,
+                  visualDensity: compact
+                      ? VisualDensity.compact
+                      : VisualDensity.standard,
+                  padding: compact
+                      ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
+                      : null,
                 ),
               ),
             if (state.fase == FaseTurno.confirmandoJugada) ...[
@@ -150,6 +163,11 @@ class PanelDados extends StatelessWidget {
                             CancelarConfirmacion(),
                           )
                         : null,
+                    style: compact
+                        ? OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          )
+                        : null,
                     child: const Text('Cancelar'),
                   ),
                   FilledButton(
@@ -158,6 +176,11 @@ class PanelDados extends StatelessWidget {
                               () => context.read<JuegoBloc>().add(
                                 ConfirmarJugada(),
                               )
+                        : null,
+                    style: compact
+                        ? FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          )
                         : null,
                     child: const Text('Confirmar Jugada'),
                   ),
@@ -172,6 +195,11 @@ class PanelDados extends StatelessWidget {
                           () => context.read<JuegoBloc>().add(
                             IniciarTurno(const {}),
                           )
+                    : null,
+                style: compact
+                    ? FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      )
                     : null,
                 child: const Text('Siguiente Turno'),
               ),
@@ -191,6 +219,7 @@ class _BotonDado extends StatefulWidget {
     this.esAncla = false,
     this.esColocar = false,
     this.onTap,
+    this.compacto = false,
   });
 
   final int valor;
@@ -198,6 +227,7 @@ class _BotonDado extends StatefulWidget {
   final bool esColocar;
   final int rollId;
   final VoidCallback? onTap;
+  final bool compacto;
 
   @override
   State<_BotonDado> createState() => _BotonDadoState();
@@ -276,8 +306,8 @@ class _BotonDadoState extends State<_BotonDado>
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          width: 64,
-          height: 64,
+          width: widget.compacto ? 52 : 64,
+          height: widget.compacto ? 52 : 64,
           decoration: BoxDecoration(
             color: colorFondo,
             borderRadius: BorderRadius.circular(12),
@@ -298,7 +328,7 @@ class _BotonDadoState extends State<_BotonDado>
           child: Text(
             widget.valor.toString(),
             style: TextStyle(
-              fontSize: 32,
+              fontSize: widget.compacto ? 26 : 32,
               fontWeight: FontWeight.bold,
               color: colorTexto,
             ),

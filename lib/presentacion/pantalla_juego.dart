@@ -354,47 +354,90 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     });
   }
 
-  Widget _connectionNotice() => Card(
+  Widget _connectionNotice({bool compact = false}) => Card(
     key: const Key('multiplayer-connection-lost'),
     color: Theme.of(context).colorScheme.errorContainer,
     child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _waitingForConnection
-                ? 'Esperando que vuelva la conexión con el servidor. '
-                      'Se reintentará automáticamente.'
-                : 'Se perdió la conexión con el servidor. '
-                      'Puedes esperar o salir de la sala.',
-          ),
-          if (_pendingMoveRetry != null)
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Text(
-                'Tu jugada está pendiente y se enviará automáticamente '
-                'al reconectar.',
-              ),
-            ),
-          Wrap(
-            alignment: WrapAlignment.end,
-            children: [
-              if (!_waitingForConnection)
-                TextButton(
-                  key: const Key('wait-for-game-server'),
-                  onPressed: () => setState(() => _waitingForConnection = true),
-                  child: const Text('Seguir esperando'),
-                ),
-              TextButton(
-                key: const Key('leave-game-while-offline'),
-                onPressed: _isBusy ? null : _leaveMultiplayerGame,
-                child: const Text('Salir de la sala'),
-              ),
-            ],
-          ),
-        ],
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: compact ? 4 : 12,
       ),
+      child: compact
+          ? Row(
+              children: [
+                const Icon(Icons.cloud_off_outlined, size: 18),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _waitingForConnection
+                        ? 'Esperando conexión…'
+                        : _pendingMoveRetry != null
+                        ? 'Sin conexión. Tu jugada está pendiente; se reintentará.'
+                        : 'Sin conexión con el servidor.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                if (!_waitingForConnection)
+                  TextButton(
+                    key: const Key('wait-for-game-server'),
+                    onPressed: () =>
+                        setState(() => _waitingForConnection = true),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                    ),
+                    child: const Text('Esperar'),
+                  ),
+                TextButton(
+                  key: const Key('leave-game-while-offline'),
+                  onPressed: _isBusy ? null : _leaveMultiplayerGame,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  child: const Text('Salir'),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _waitingForConnection
+                      ? 'Esperando que vuelva la conexión con el servidor. '
+                            'Se reintentará automáticamente.'
+                      : 'Se perdió la conexión con el servidor. '
+                            'Puedes esperar o salir de la sala.',
+                ),
+                if (_pendingMoveRetry != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Tu jugada está pendiente y se enviará automáticamente '
+                      'al reconectar.',
+                    ),
+                  ),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  children: [
+                    if (!_waitingForConnection)
+                      TextButton(
+                        key: const Key('wait-for-game-server'),
+                        onPressed: () =>
+                            setState(() => _waitingForConnection = true),
+                        child: const Text('Seguir esperando'),
+                      ),
+                    TextButton(
+                      key: const Key('leave-game-while-offline'),
+                      onPressed: _isBusy ? null : _leaveMultiplayerGame,
+                      child: const Text('Salir de la sala'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     ),
   );
 
@@ -525,42 +568,59 @@ class _PantallaJuegoState extends State<PantallaJuego> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_connectionLost) _connectionNotice(),
+                  if (_connectionLost) _connectionNotice(compact: true),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 500),
-                          child: Column(
+                    child: constraints.maxWidth > constraints.maxHeight
+                        ? Row(
                             children: [
-                              const InstruccionZonaInicial(),
-                              const SizedBox(height: 16),
-                              _TableroConPuntuaciones(
-                                mapa: widget.mapa,
-                                altoDisponible:
-                                    constraints.maxHeight -
-                                    (_connectionLost ? 160 : 100),
-                                enVertical: constraints.maxWidth < 600,
+                              Expanded(
+                                flex: 5,
+                                child: _TableroMovil(mapa: widget.mapa),
                               ),
-                              const SizedBox(height: 24),
-                              _PanelPartida(
-                                tablero: tablero,
-                                compacto: true,
-                                multiplayer: _isMultiplayer,
-                                room: _room,
-                                currentUserId: widget.multiplayerUser?.id,
-                                isBusy: _isBusy || _pendingMoveRetry != null,
-                                onStart: _submitInitialBoard,
-                                onConfirmMove: _submitMove,
-                                onSkipTurn: _skipTurn,
-                                errorMessage: _remoteError,
+                              Expanded(
+                                flex: 4,
+                                child: _PanelPartida(
+                                  tablero: tablero,
+                                  compacto: true,
+                                  mobile: true,
+                                  mapa: widget.mapa,
+                                  multiplayer: _isMultiplayer,
+                                  room: _room,
+                                  currentUserId: widget.multiplayerUser?.id,
+                                  isBusy: _isBusy || _pendingMoveRetry != null,
+                                  onStart: _submitInitialBoard,
+                                  onConfirmMove: _submitMove,
+                                  onSkipTurn: _skipTurn,
+                                  errorMessage: _remoteError,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: _TableroMovil(mapa: widget.mapa),
+                              ),
+                              Expanded(
+                                flex: 7,
+                                child: _PanelPartida(
+                                  tablero: tablero,
+                                  compacto: true,
+                                  mobile: true,
+                                  mapa: widget.mapa,
+                                  multiplayer: _isMultiplayer,
+                                  room: _room,
+                                  currentUserId: widget.multiplayerUser?.id,
+                                  isBusy: _isBusy || _pendingMoveRetry != null,
+                                  onStart: _submitInitialBoard,
+                                  onConfirmMove: _submitMove,
+                                  onSkipTurn: _skipTurn,
+                                  errorMessage: _remoteError,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               );
@@ -623,44 +683,51 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   }
 }
 
+class _TableroMovil extends StatelessWidget {
+  const _TableroMovil({required this.mapa});
+
+  final MapaTablero mapa;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            children: [
+              const InstruccionZonaInicial(),
+              Expanded(
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: constraints.maxWidth
+                        .clamp(1.0, constraints.maxHeight)
+                        .toDouble(),
+                    child: TableroWidget(mapa: mapa),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _TableroConPuntuaciones extends StatelessWidget {
   const _TableroConPuntuaciones({
     required this.mapa,
     required this.altoDisponible,
-    this.enVertical = false,
   });
 
   final MapaTablero mapa;
   final double altoDisponible;
-  final bool enVertical;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (enVertical) {
-          final ladoTablero = constraints.maxWidth
-              .clamp(1.0, (altoDisponible * 0.72).clamp(120.0, 560.0))
-              .toDouble();
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox.square(
-                dimension: ladoTablero,
-                child: TableroWidget(mapa: mapa),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: constraints.maxWidth,
-                child: PuntuacionesDisponiblesWidget(
-                  mapa: mapa,
-                  horizontal: true,
-                ),
-              ),
-            ],
-          );
-        }
-
         const espacioEntre = 8.0;
         final anchoPanel = (constraints.maxWidth * 0.4)
             .clamp(120.0, 220.0)
@@ -699,6 +766,8 @@ class _PanelPartida extends StatelessWidget {
     this.onConfirmMove,
     this.onSkipTurn,
     this.errorMessage,
+    this.mobile = false,
+    this.mapa = MapaTablero.mapa1,
   });
 
   final TableroJuego tablero;
@@ -711,11 +780,14 @@ class _PanelPartida extends StatelessWidget {
   final VoidCallback? onConfirmMove;
   final VoidCallback? onSkipTurn;
   final String? errorMessage;
+  final bool mobile;
+  final MapaTablero mapa;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      key: mobile ? const Key('mobile-game-controls') : null,
+      padding: EdgeInsets.all(mobile ? 8 : 16),
       decoration: BoxDecoration(
         color: TemaMesa.papelClaro,
         borderRadius: BorderRadius.circular(16),
@@ -724,16 +796,100 @@ class _PanelPartida extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (multiplayer && room != null) ...[
-            Text(
-              'Sala ${room!.code}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: TemaMesa.nogal,
-                fontWeight: FontWeight.bold,
-              ),
+          if (mobile)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    multiplayer && room != null
+                        ? 'Sala ${room!.code}'
+                        : 'Partida',
+                    style: const TextStyle(
+                      color: TemaMesa.nogal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('show-game-history'),
+                  tooltip: 'Ver seguimiento de la partida',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final gameBloc = context.read<JuegoBloc>();
+                    showDialog<void>(
+                      context: context,
+                      builder: (context) => BlocProvider.value(
+                        value: gameBloc,
+                        child: AlertDialog(
+                          title: const Text('Registro de Partida'),
+                          content: SizedBox(
+                            width: 360,
+                            height: 260,
+                            child: const HistorialPartidaWidget(
+                              height: 260,
+                              showEmptyMessage: true,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cerrar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.history),
+                ),
+                IconButton(
+                  key: const Key('show-game-scores'),
+                  tooltip: 'Ver puntuaciones disponibles',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final gameBloc = context.read<JuegoBloc>();
+                    showDialog<void>(
+                      context: context,
+                      builder: (context) => BlocProvider.value(
+                        value: gameBloc,
+                        child: AlertDialog(
+                          title: const Text('Puntuaciones disponibles'),
+                          content: SingleChildScrollView(
+                            child: SizedBox(
+                              width: 360,
+                              child: PuntuacionesDisponiblesWidget(
+                                mapa: mapa,
+                                horizontal: true,
+                              ),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cerrar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.leaderboard_outlined),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+          if (multiplayer && room != null) ...[
+            if (!mobile) ...[
+              Text(
+                'Sala ${room!.code}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: TemaMesa.nogal,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
           if (errorMessage != null) ...[
             Text(
@@ -744,22 +900,24 @@ class _PanelPartida extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
-          const Text(
-            'Registro de Partida',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: TemaMesa.nogal,
+          if (!mobile) ...[
+            const Text(
+              'Registro de Partida',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: TemaMesa.nogal,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (compacto)
-            const HistorialPartidaWidget()
-          else
-            const Expanded(child: HistorialPartidaWidget()),
-          const SizedBox(height: 16),
-          const Divider(color: Color(0x5568452D)),
-          const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            if (compacto)
+              const HistorialPartidaWidget()
+            else
+              const Expanded(child: HistorialPartidaWidget()),
+            const SizedBox(height: 16),
+            const Divider(color: Color(0x5568452D)),
+            const SizedBox(height: 16),
+          ],
           BlocBuilder<JuegoBloc, JuegoState>(
             builder: (context, juegoState) {
               if (multiplayer && room == null) {
@@ -832,6 +990,7 @@ class _PanelPartida extends StatelessWidget {
                           : 'Ronda ${room!.round}: dados compartidos por todos')
                     : null,
                 skipTurnLabel: multiplayer ? 'Terminar mi ronda' : null,
+                compact: mobile,
               );
             },
           ),

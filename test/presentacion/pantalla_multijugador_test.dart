@@ -429,7 +429,6 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-
       var latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
       var moveAttempts = 0;
       String? firstMoveCommandId;
@@ -514,6 +513,7 @@ void main() {
       expect(find.text('Brilliant · ABC234'), findsOneWidget);
       expect(find.byType(TableroWidget), findsOneWidget);
       expect(find.byType(SelectorNumerosZonaInicial), findsOneWidget);
+      expect(find.byKey(const Key('show-game-history')), findsOneWidget);
       final gameContext = tester.element(find.byType(TableroWidget));
       final cubit = gameContext.read<ZonaInicialCubit>();
       final gameBloc = gameContext.read<JuegoBloc>();
@@ -566,6 +566,11 @@ void main() {
         findsOneWidget,
       );
       expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
+      await tester.tap(find.byKey(const Key('show-game-history')));
+      await tester.pumpAndSettle();
+      expect(find.text('Jugador Uno creó la sala.'), findsOneWidget);
+      await tester.tap(find.text('Cerrar'));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
