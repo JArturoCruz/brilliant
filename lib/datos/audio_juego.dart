@@ -73,7 +73,7 @@ class AudioJuego extends ChangeNotifier {
   }
 
   String _rutaEfecto(SonidoJuego sonido) => switch (sonido) {
-    SonidoJuego.dados => 'audio/dice.wav',
+    SonidoJuego.dados => 'audio/dice.mp3',
     SonidoJuego.ancla => 'audio/anchor.wav',
     SonidoJuego.numero => 'audio/place.wav',
     SonidoJuego.zonaCompleta => 'audio/complete.wav',
