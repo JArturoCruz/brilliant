@@ -423,9 +423,9 @@ void main() {
   });
 
   testWidgets(
-    'uses the original board and submits setup and moves to the server',
+    'supports setup, moves, and reconnect on a phone-sized screen',
     (tester) async {
-      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -537,13 +537,19 @@ void main() {
       expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('dado-1')));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('game-cell-3-1')));
+      final anchorCell = find.byKey(const Key('game-cell-3-1'));
+      await tester.ensureVisible(anchorCell);
+      await tester.tap(anchorCell);
       await tester.pump();
-      await tester.tap(find.byKey(const Key('game-cell-2-1')));
+      final destinationCell = find.byKey(const Key('game-cell-2-1'));
+      await tester.ensureVisible(destinationCell);
+      await tester.tap(destinationCell);
       await tester.pumpAndSettle();
       expect(gameBloc.state.fase, FaseTurno.confirmandoJugada);
       expect(find.text('¿Confirmas colocar el 3?'), findsOneWidget);
-      await tester.tap(find.text('Confirmar Jugada'));
+      final confirmMove = find.text('Confirmar Jugada');
+      await tester.ensureVisible(confirmMove);
+      await tester.tap(confirmMove);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('multiplayer-connection-lost')),
@@ -560,6 +566,7 @@ void main() {
         findsOneWidget,
       );
       expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

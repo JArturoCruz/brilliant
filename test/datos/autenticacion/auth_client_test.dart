@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:brilliant/datos/autenticacion/auth_client.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -24,6 +25,38 @@ void main() {
     'name': 'Player One',
     'email': 'player@example.com',
   };
+
+  test('uses the host gateway for localhost on the Android emulator', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    final client = AuthClient.fromEnvironment(
+      tokenStore: MemoryTokenStore()..token = 'session-token',
+      httpClient: MockClient((request) async {
+        expect(request.url.host, '10.0.2.2');
+        expect(request.url.port, 3000);
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await client.authenticatedRequest('GET', '/api/multiplayer/lobby');
+  });
+
+  test('keeps localhost for desktop development', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    final client = AuthClient.fromEnvironment(
+      tokenStore: MemoryTokenStore()..token = 'session-token',
+      httpClient: MockClient((request) async {
+        expect(request.url.host, 'localhost');
+        expect(request.url.port, 3000);
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await client.authenticatedRequest('GET', '/api/multiplayer/lobby');
+  });
 
   test('registers through Better Auth and stores its bearer token', () async {
     final tokenStore = MemoryTokenStore();

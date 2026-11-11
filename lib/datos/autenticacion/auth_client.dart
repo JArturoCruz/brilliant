@@ -136,21 +136,29 @@ class AuthClient implements AuthGateway {
        _httpClient = httpClient ?? http.Client(),
        _tokenStore = tokenStore ?? SecureAuthTokenStore();
 
-  factory AuthClient.fromEnvironment() {
+  factory AuthClient.fromEnvironment({
+    http.Client? httpClient,
+    AuthTokenStore? tokenStore,
+  }) {
     const configuredUrl = String.fromEnvironment('BRILLIANT_API_URL');
-    final baseUrl = configuredUrl.isNotEmpty
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final selectedUrl = configuredUrl.isNotEmpty
         ? configuredUrl
         : kReleaseMode
         ? null
+        : kIsWeb
+        ? Uri(scheme: 'http', host: Uri.base.host, port: 3000).toString()
+        : isAndroid
+        ? 'http://10.0.2.2:3000'
         : 'http://localhost:3000';
-    if (baseUrl == null) {
+    if (selectedUrl == null) {
       throw StateError(
         'Configura BRILLIANT_API_URL con la URL HTTPS del servidor antes '
         'de compilar la versión de producción.',
       );
     }
 
-    final uri = Uri.tryParse(baseUrl);
+    final uri = Uri.tryParse(selectedUrl);
     if (uri == null ||
         !uri.hasAuthority ||
         uri.userInfo.isNotEmpty ||
@@ -167,7 +175,14 @@ class AuthClient implements AuthGateway {
       );
     }
 
-    return AuthClient(baseUrl: baseUrl);
+    final baseUrl = isAndroid && _isLoopbackHost(uri.host)
+        ? uri.replace(host: '10.0.2.2').toString()
+        : selectedUrl;
+    return AuthClient(
+      baseUrl: baseUrl,
+      httpClient: httpClient,
+      tokenStore: tokenStore,
+    );
   }
 
   static final AuthClient shared = AuthClient.fromEnvironment();
@@ -177,6 +192,9 @@ class AuthClient implements AuthGateway {
   final AuthTokenStore _tokenStore;
   final void Function(AuthRequestDiagnostic diagnostic)? onDiagnostic;
   static final Random _requestIdRandom = Random.secure();
+
+  static bool _isLoopbackHost(String host) =>
+      host == 'localhost' || host == '127.0.0.1' || host == '::1';
 
   Future<http.Response> authenticatedRequest(
     String method,

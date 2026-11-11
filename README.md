@@ -9,7 +9,7 @@ the independent Brilliant Auth Server.
 Start the auth server in one terminal:
 
 ```powershell
-cd C:\Users\jorge\brilliant-auth-server
+cd C:\flutter\server\brilliant-auth-server
 npm run dev
 ```
 
@@ -17,11 +17,24 @@ Start Flutter in another terminal:
 
 ```powershell
 cd C:\flutter\brilliant
-flutter run -d chrome --web-port=61311 --dart-define=BRILLIANT_API_URL=http://localhost:3000
+flutter run -d chrome --dart-define=BRILLIANT_API_URL=http://localhost:3000
 ```
 
-The server must allow the exact Chrome origin in `CLIENT_ORIGINS`, for example
-`http://localhost:61311`. Restart the server after changing `.env`.
+When Chrome serves the app from the same computer as the server, it derives
+the API hostname from the page's hostname and uses port 3000. You can omit
+`--dart-define` in this local setup.
+
+For the Android Studio emulator, `localhost` (or `127.0.0.1`) is translated to
+`10.0.2.2`, the emulator's route to the host computer. On a physical phone or a
+different computer, set `BRILLIANT_API_URL` to the server's stable LAN DNS
+name, for example `http://brilliant-server.local:3000`. The hostname must be
+configured in the network's DNS/mDNS; the project name alone is not a network
+address. Local HTTP is enabled only in Android debug builds.
+
+Chrome local is allowed on any Flutter development port. If you host the web
+app under a non-local hostname, add its exact origin to `CLIENT_ORIGINS` in the
+server configuration. For access outside the local network, deploy the server
+behind HTTPS and use its stable domain.
 
 ## Multiplayer
 
