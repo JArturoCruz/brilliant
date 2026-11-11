@@ -5,6 +5,7 @@ import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/datos/autenticacion/auth_client.dart';
 import 'package:brilliant/datos/multijugador/multiplayer_client.dart';
+import 'package:brilliant/datos/audio_juego.dart';
 import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/posicion.dart';
@@ -19,6 +20,7 @@ import '../dominio/zona_inicial.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
+import 'widgets/boton_audio.dart';
 import 'widgets/instruccion_zona_inicial.dart';
 import 'widgets/puntuaciones_disponibles_widget.dart';
 import 'widgets/selector_numeros_zona_inicial.dart';
@@ -51,6 +53,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   final TableroJuego tablero = TableroJuego();
   Timer? _pollTimer;
   BuildContext? _gameContext;
+  JuegoState? _lastObservedGameState;
   RoomSnapshot? _room;
   String? _remoteError;
   bool _isPolling = false;
@@ -60,6 +63,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _connectionLost = false;
   bool _waitingForConnection = false;
   bool _resultsDialogShown = false;
+  bool _victorySoundPlayed = false;
   int? _lastSynchronizedRevision;
   Future<RoomSnapshot> Function()? _pendingMoveRetry;
 
@@ -88,7 +92,57 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    unawaited(AudioJuego.instancia.detenerMusica());
     super.dispose();
+  }
+
+  void _reproducirSonidosDeJugada(JuegoState anterior, JuegoState actual) {
+    final nuevaTirada =
+        actual.dado1 != null &&
+        actual.dado2 != null &&
+        (anterior.dado1 != actual.dado1 ||
+            anterior.dado2 != actual.dado2 ||
+            (actual.historial.length > anterior.historial.length &&
+                actual.historial.isNotEmpty &&
+                actual.historial.first.startsWith('🎲 Dados tirados:')));
+    if (nuevaTirada) {
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.dados));
+    }
+
+    if (anterior.fase == FaseTurno.seleccionandoCasilla &&
+        actual.fase == FaseTurno.colocandoNumero) {
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.ancla));
+    }
+
+    final casillasAnteriores = anterior.tablero
+        .expand((fila) => fila)
+        .where((casilla) => casilla.valorActual != null)
+        .length;
+    final casillasActuales = actual.tablero
+        .expand((fila) => fila)
+        .where((casilla) => casilla.valorActual != null)
+        .length;
+    if (casillasAnteriores >= 6 && casillasActuales > casillasAnteriores) {
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.numero));
+    }
+
+    final zonasCompletadas = actual.contadorCompletadasPorRegion.entries.fold(
+      0,
+      (total, entrada) =>
+          total +
+          entrada.value -
+          (anterior.contadorCompletadasPorRegion[entrada.key] ?? 0),
+    );
+    for (var zona = 0; zona < zonasCompletadas; zona++) {
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
+    }
+
+    if (!anterior.tableroCompleto &&
+        actual.tableroCompleto &&
+        !_victorySoundPlayed) {
+      _victorySoundPlayed = true;
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.victoria));
+    }
   }
 
   Future<void> _refreshMultiplayer({bool force = false}) async {
@@ -442,7 +496,12 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   );
 
   void _showResultsIfFinished(RoomSnapshot room) {
-    if (room.phase != 'finished' || _resultsDialogShown || !mounted) return;
+    if (room.phase != 'finished' || !mounted) return;
+    if (room.winners.isNotEmpty && !_victorySoundPlayed) {
+      _victorySoundPlayed = true;
+      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.victoria));
+    }
+    if (_resultsDialogShown) return;
     _resultsDialogShown = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -475,13 +534,23 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         child: Builder(
           builder: (context) {
             _gameContext = context;
+            _lastObservedGameState ??= context.read<JuegoBloc>().state;
             return PopScope<Object?>(
               canPop: !_isMultiplayer || _allowPop,
               onPopInvokedWithResult: (didPop, _) {
                 if (!didPop && _isMultiplayer) _leaveMultiplayerGame();
               },
-              child: MensajesZonaInicialListener(
-                child: _buildScaffold(context),
+              child: BlocListener<JuegoBloc, JuegoState>(
+                listener: (context, state) {
+                  final anterior = _lastObservedGameState;
+                  if (anterior != null) {
+                    _reproducirSonidosDeJugada(anterior, state);
+                  }
+                  _lastObservedGameState = state;
+                },
+                child: MensajesZonaInicialListener(
+                  child: _buildScaffold(context),
+                ),
               ),
             );
           },
@@ -497,6 +566,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
           _isMultiplayer ? 'Brilliant · ${widget.roomCode}' : 'Brilliant',
         ),
         actions: [
+          const BotonAudio(),
           if (_isMultiplayer)
             IconButton(
               key: const Key('leave-multiplayer-game'),

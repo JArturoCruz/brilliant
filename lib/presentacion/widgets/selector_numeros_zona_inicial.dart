@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../datos/audio_juego.dart';
 import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/zona_inicial.dart';
 import 'boton_numero.dart';
@@ -34,7 +37,17 @@ class SelectorNumerosZonaInicial extends StatelessWidget {
                 marcado: valorSel == n,
                 habilitado: hayCeldaEditable && cubit.puedeAsignarPorRegla(n),
                 usadoEnOtraCelda: state.usados.contains(n) && valorSel != n,
-                onPressed: () => cubit.asignarASeleccionada(n),
+                onPressed: () {
+                  final valorAnterior = sel == null ? null : state.valores[sel];
+                  cubit.asignarASeleccionada(n);
+                  if (sel != null &&
+                      cubit.state.valores[sel] == n &&
+                      valorAnterior != n) {
+                    unawaited(
+                      AudioJuego.instancia.reproducir(SonidoJuego.numero),
+                    );
+                  }
+                },
               ),
             IconButton.outlined(
               tooltip: 'Borrar casilla',

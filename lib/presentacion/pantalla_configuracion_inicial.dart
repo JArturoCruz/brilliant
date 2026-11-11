@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
+import 'package:brilliant/datos/audio_juego.dart';
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +12,7 @@ import '../dominio/tablero.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
+import 'widgets/boton_audio.dart';
 import 'widgets/instruccion_zona_inicial.dart';
 import 'widgets/selector_numeros_zona_inicial.dart';
 import 'widgets/tablero_widget.dart';
@@ -26,6 +30,12 @@ class _PantallaConfiguracionInicialState
   final TableroJuego tablero = TableroJuego();
 
   @override
+  void dispose() {
+    unawaited(AudioJuego.instancia.detenerMusica());
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
@@ -35,7 +45,10 @@ class _PantallaConfiguracionInicialState
       child: AtajosTecladoZonaInicial(
         child: MensajesZonaInicialListener(
           child: Scaffold(
-            appBar: AppBar(title: const Text('Brilliant')),
+            appBar: AppBar(
+              title: const Text('Brilliant'),
+              actions: const [BotonAudio()],
+            ),
             body: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
