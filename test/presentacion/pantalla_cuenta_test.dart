@@ -7,6 +7,8 @@ class FakeAuthGateway implements AuthGateway {
   AuthUser? user;
   String? deletedPassword;
   bool loginCalled = false;
+  String? registeredPassword;
+  String? loginPassword;
   AuthApiException? registrationError;
   AuthApiException? signOutError;
 
@@ -23,6 +25,7 @@ class FakeAuthGateway implements AuthGateway {
   }) async {
     final error = registrationError;
     if (error != null) throw error;
+    registeredPassword = password;
     user = account;
     return account;
   }
@@ -33,6 +36,7 @@ class FakeAuthGateway implements AuthGateway {
     required String password,
   }) async {
     loginCalled = true;
+    loginPassword = password;
     user = account;
     return account;
   }
@@ -55,7 +59,7 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
-  testWidgets('rechaza contraseñas nuevas cortas o no numéricas', (
+  testWidgets('rechaza PIN con longitud incorrecta o no numérico', (
     tester,
   ) async {
     final gateway = FakeAuthGateway();
@@ -63,15 +67,29 @@ void main() {
       MaterialApp(home: PantallaCuenta(authGateway: gateway)),
     );
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const Key('account-password')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .keyboardType,
+      TextInputType.number,
+    );
     await tester.enterText(find.byKey(const Key('account-name')), 'Jugador');
-    for (final password in ['12345', '12345a']) {
+    for (final password in ['12345', '12345a', '1234567']) {
       await tester.enterText(
         find.byKey(const Key('account-password')),
         password,
       );
       await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
       await tester.pumpAndSettle();
-      expect(find.text('Usa entre 6 y 128 dígitos.'), findsOneWidget);
+      expect(
+        find.text('Ingresa exactamente 6 dígitos numéricos.'),
+        findsOneWidget,
+      );
       expect(gateway.user, isNull);
     }
   });
@@ -84,11 +102,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(find.byKey(const Key('account-password')), '123456');
+    await tester.enterText(find.byKey(const Key('account-password')), '001234');
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
     expect(find.text('Sesión iniciada'), findsOneWidget);
+    expect(gateway.registeredPassword, '001234');
     expect(find.text('Player One'), findsOneWidget);
     expect(find.text('player@example.com'), findsNothing);
 
@@ -98,11 +117,15 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(find.byKey(const Key('account-password')), '123456');
+    await tester.enterText(
+      find.byKey(const Key('account-password')),
+      'Old-Password12',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
     await tester.pumpAndSettle();
 
     expect(gateway.loginCalled, isTrue);
+    expect(gateway.loginPassword, 'Old-Password12');
     expect(find.text('Sesión iniciada'), findsOneWidget);
   });
 

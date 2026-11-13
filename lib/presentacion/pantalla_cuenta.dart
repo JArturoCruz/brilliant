@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../datos/autenticacion/auth_client.dart';
 import 'tema_mesa.dart';
@@ -247,20 +248,26 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
             key: const Key('account-password'),
             controller: _passwordController,
             obscureText: true,
+            keyboardType: _isRegistering
+                ? TextInputType.number
+                : TextInputType.text,
+            maxLength: _isRegistering ? 6 : null,
+            maxLengthEnforcement: MaxLengthEnforcement.none,
             textInputAction: TextInputAction.done,
             autofillHints: _isRegistering
                 ? const [AutofillHints.newPassword]
                 : const [AutofillHints.password],
             onFieldSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
-              labelText: 'Contraseña',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: _isRegistering
+                  ? 'PIN de 6 dígitos'
+                  : 'Contraseña o PIN',
+              border: const OutlineInputBorder(),
             ),
             validator: (value) {
               final password = value ?? '';
-              if (_isRegistering &&
-                  !RegExp(r'^[0-9]{6,128}$').hasMatch(password)) {
-                return 'Usa entre 6 y 128 dígitos.';
+              if (_isRegistering && !RegExp(r'^[0-9]{6}$').hasMatch(password)) {
+                return 'Ingresa exactamente 6 dígitos numéricos.';
               }
               if (password.isEmpty) return 'Ingresa tu contraseña.';
               return null;

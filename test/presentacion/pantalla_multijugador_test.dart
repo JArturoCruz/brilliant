@@ -42,6 +42,7 @@ void main() {
     int revision = 1,
     int round = 1,
     bool currentPlayerForfeited = false,
+    Set<String> forfeitedIds = const {},
     List<List<int?>>? board,
     List<int>? dice,
     String? playedPlayerId,
@@ -65,7 +66,8 @@ void main() {
         'isHost': index == 0,
         'connected': true,
         'score': index < scores.length ? scores[index] : 0,
-        'forfeited': index == 0 && currentPlayerForfeited,
+        'forfeited':
+            (index == 0 && currentPlayerForfeited) || forfeitedIds.contains(id),
         'isWinner': winners.contains(id),
         'ready': ready,
         'playedThisRound': id == playedPlayerId,
@@ -676,6 +678,104 @@ void main() {
     expect(requests, contains('POST /api/multiplayer/rooms/ABC234/leave'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'el último jugador gana y confirma los resultados antes de salir',
+    (tester) async {
+      final boards = {
+        'player-1': List.generate(7, (_) => List<int?>.filled(7, 1)),
+        'player-2': List.generate(7, (_) => List<int?>.filled(7, 2)),
+      };
+      var room = roomJson(
+        players: 2,
+        phase: 'playing',
+        ready: true,
+        dice: [1, 2],
+        playerBoards: boards,
+      );
+      var leaveRequests = 0;
+      final client = clientWith((request) async {
+        if (request.url.path.endsWith('/lobby')) {
+          return http.Response(jsonEncode(lobbyJson()), 200);
+        }
+        if (request.url.path.endsWith('/leave')) {
+          leaveRequests++;
+          return http.Response(jsonEncode({'dissolved': false}), 200);
+        }
+        if (request.url.path.endsWith('/join') ||
+            request.url.path.endsWith('/ABC234')) {
+          return http.Response(jsonEncode(room), 200);
+        }
+        return http.Response('{}', 404);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PantallaMultijugador(user: user, client: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('invite-code-input')),
+        'ABC234',
+      );
+      await tester.tap(find.byKey(const Key('join-room-by-code')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('show-player-boards')));
+      await tester.pumpAndSettle();
+
+      room = roomJson(
+        players: 2,
+        phase: 'finished',
+        revision: 2,
+        ready: true,
+        scores: [0, 8],
+        forfeitedIds: {'player-2'},
+        winners: ['player-1'],
+        finishReason: 'last_player',
+        playerBoards: boards,
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Tableros de jugadores'), findsNothing);
+      expect(find.text('¡Ganó Jugador Uno!'), findsOneWidget);
+      expect(
+        find.text(
+          'Los demás jugadores abandonaron o se desconectaron. El último jugador gana automáticamente.',
+        ),
+        findsOneWidget,
+      );
+      final resultDialog = find.byKey(const Key('multiplayer-results-dialog'));
+      final ranking = tester
+          .widgetList<ListTile>(
+            find.descendant(of: resultDialog, matching: find.byType(ListTile)),
+          )
+          .toList();
+      expect((ranking.first.title! as Text).data, 'Jugador Uno');
+      expect(find.text('0 pts'), findsOneWidget);
+      expect(find.text('8 pts'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<VistaPreviaMapa>(find.byType(VistaPreviaMapa))
+            .map((preview) => preview.valores?.first.first),
+        containsAll([1, 2]),
+      );
+      expect(leaveRequests, 0);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('multiplayer-results-dialog')),
+        findsOneWidget,
+      );
+      expect(leaveRequests, 0);
+
+      await tester.tap(find.byKey(const Key('finished-return-to-lobby')));
+      await tester.pumpAndSettle();
+      expect(leaveRequests, 1);
+      expect(find.text('Lobby'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'actualiza el tablero rival abierto y avisa cuando completa zona',

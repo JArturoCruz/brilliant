@@ -785,6 +785,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     }
     return switch (room.finishReason) {
       'score' => 'Se alcanzó primero la puntuación objetivo.',
+      'last_player' => 'Los demás jugadores abandonaron o se desconectaron. El último jugador gana automáticamente.',
       'host_forfeit' || 'host_disconnected' =>
         'El anfitrión abandonó o perdió la conexión; los demás ganaron.',
       'player_forfeit' || 'player_disconnected' =>

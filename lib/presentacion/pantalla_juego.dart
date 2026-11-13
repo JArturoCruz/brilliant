@@ -599,17 +599,24 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     _resultsDialogShown = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final gameRoute = ModalRoute.of(context);
+      if (gameRoute != null) {
+        Navigator.of(context).popUntil((route) => route == gameRoute);
+      }
       unawaited(
         showDialog<void>(
           context: context,
           barrierDismissible: false,
-          builder: (dialogContext) => _PartidaFinalizadaDialog(
-            room: room,
-            mapa: widget.mapa,
-            onReturnToLobby: () {
-              Navigator.of(dialogContext).pop();
-              _leaveMultiplayerGame(returnToLobby: true);
-            },
+          builder: (dialogContext) => PopScope(
+            canPop: false,
+            child: _PartidaFinalizadaDialog(
+              room: room,
+              mapa: widget.mapa,
+              onReturnToLobby: () {
+                Navigator.of(dialogContext).pop();
+                _leaveMultiplayerGame(returnToLobby: true);
+              },
+            ),
           ),
         ),
       );
@@ -1164,7 +1171,14 @@ class _PartidaFinalizadaDialog extends StatelessWidget {
         .whereType<String>()
         .toList(growable: false);
     final ranking = [...room.players]
-      ..sort((first, second) => second.score.compareTo(first.score));
+      ..sort((first, second) {
+        final winnerOrder =
+            (room.winners.contains(second.id) ? 1 : 0) -
+            (room.winners.contains(first.id) ? 1 : 0);
+        return winnerOrder != 0
+            ? winnerOrder
+            : second.score.compareTo(first.score);
+      });
 
     return AlertDialog(
       key: const Key('multiplayer-results-dialog'),
@@ -1260,6 +1274,7 @@ class _PartidaFinalizadaDialog extends StatelessWidget {
 
   String _finishMessage(String? reason) => switch (reason) {
     'score' => 'Se alcanzó la puntuación objetivo.',
+    'last_player' => 'Los demás jugadores abandonaron o se desconectaron. El último jugador gana automáticamente.',
     'host_forfeit' ||
     'host_disconnected' => 'El anfitrión abandonó o perdió la conexión.',
     'player_forfeit' || 'player_disconnected' =>

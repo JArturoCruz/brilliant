@@ -25,8 +25,8 @@ En la pantalla inicial escribe la IP o URL del servidor y pulsa **Conectar**.
 Después crea una cuenta o inicia sesión para acceder al juego y al
 multijugador. Se verifica el servidor antes de habilitar la cuenta. La
 dirección se recuerda y cambiar de servidor cierra la sesión local.
-El registro solo solicita un nombre de usuario único y una contraseña
-numérica de al menos seis dígitos. Las cuentas anteriores conservan su
+El registro solo solicita un nombre de usuario único y un PIN numérico
+de exactamente seis dígitos. Las cuentas anteriores conservan su
 contraseña y pueden iniciar sesión con su nombre de usuario.
 
 - En el equipo servidor, usa `localhost:3000`.
@@ -112,7 +112,9 @@ condition are validated by the authenticated server. Players can leave at any
 time. If the host leaves before or during initial setup, the room closes and
 everyone returns to the lobby. Once play begins, a leaving or disconnected
 player is removed while the game continues; their score and already-claimed
-region rewards are preserved.
+region rewards are preserved. If only one player remains, that player wins
+immediately regardless of scores. The final standings and boards remain visible
+until the winner confirms the return to the lobby.
 
 The client polls every two seconds and automatically retries after a network
 interruption. Multiplayer rooms currently live in server memory: restarting
@@ -140,9 +142,8 @@ round if some future roll can still be played.
   the local token when the server cannot be reached.
 - Usernames are trimmed and compared case-insensitively with Unicode
   normalization. The server enforces uniqueness in SQLite.
-- Six-digit numeric passwords provide limited protection against guessing.
-  Use a longer numeric password for better security. No email-based password
-  recovery is available.
+- Six-digit PINs provide limited protection against guessing. No email-based
+  password recovery is available.
 - Sign-in is limited to 8 attempts per 15 minutes and registration to 5 attempts
   per hour, per client address resolved by Better Auth. If deployed behind a
   reverse proxy, configure trusted proxy addresses before relying on IP-based
