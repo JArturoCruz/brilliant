@@ -24,12 +24,59 @@ When Chrome serves the app from the same computer as the server, it derives
 the API hostname from the page's hostname and uses port 3000. You can omit
 `--dart-define` in this local setup.
 
-For the Android Studio emulator, `localhost` (or `127.0.0.1`) is translated to
-`10.0.2.2`, the emulator's route to the host computer. On a physical phone or a
-different computer, set `BRILLIANT_API_URL` to the server's stable LAN DNS
-name, for example `http://brilliant-server.local:3000`. The hostname must be
-configured in the network's DNS/mDNS; the project name alone is not a network
-address. Local HTTP is enabled only in Android debug builds.
+For the Android Studio emulator, the default `localhost` (or `127.0.0.1`) is
+translated to `10.0.2.2`, the emulator's route to the host computer. On a
+physical phone or another computer, select or enter the server address on the
+start screen. A DNS name such as `brilliant-server.local` must be configured
+in the network's DNS/mDNS; the project name alone is not a network address.
+Local HTTP is enabled only in Android debug builds.
+
+To build a debug APK for a physical Android phone on the same private Wi-Fi:
+
+```powershell
+flutter build apk --debug --split-per-abi
+```
+
+For most phones, install `build\app\outputs\flutter-apk\app-arm64-v8a-debug.apk`.
+Use `app-armeabi-v7a-debug.apk` only for older 32-bit phones. On the start
+screen, choose a detected server or enter its IP and port and press
+**Conectar**. The address is remembered; if the server IP changes, search again
+or enter the new address. Switching addresses clears the local session, so sign
+in again. Select only servers you trust: discovery and the health check do not
+authenticate the server.
+
+Automatic discovery uses UDP broadcast on port 38971 and works only on the
+same local network when broadcasts are allowed. The server must be updated and
+restarted with the discovery changes. Allow inbound UDP 38971 on the server's
+private firewall profile in addition to TCP 3000. Guest networks, VPNs and
+client isolation may prevent discovery. Web browsers cannot perform UDP
+discovery; enter the address manually and configure the server's CORS origins.
+On iOS, allow access to the local network when prompted.
+
+The server must be running and listening on the network. Set its
+`BETTER_AUTH_URL` in the server `.env` to the same LAN URL, then restart it.
+Connect the phone to the same Wi-Fi. On Windows, set that network's profile to
+**Private**, then run this in PowerShell as Administrator to allow only local
+subnet devices to connect:
+
+```powershell
+New-NetFirewallRule -DisplayName "Brilliant Auth Server LAN (Private)" -Direction Inbound -Protocol TCP -LocalPort 3000 -RemoteAddress LocalSubnet -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "Brilliant Discovery LAN (Private)" -Direction Inbound -Protocol UDP -LocalPort 38971 -RemoteAddress LocalSubnet -Action Allow -Profile Private
+```
+
+Do not expose the development HTTP server on a Public network or the Internet.
+
+For a release APK, use the server's deployed HTTPS URL (either enter it at
+startup or specify a default at build time):
+
+```powershell
+flutter build apk --release --dart-define=BRILLIANT_API_URL=https://your-auth-domain.example
+```
+
+Release builds reject HTTP, including the HTTP addresses announced by local
+discovery. Use a valid HTTPS hostname and certificate in production. This project currently uses the Android debug
+signing key for release builds, which is suitable only for local sideload
+testing, not for publishing or secure long-term updates.
 
 Chrome local is allowed on any Flutter development port. If you host the web
 app under a non-local hostname, add its exact origin to `CLIENT_ORIGINS` in the

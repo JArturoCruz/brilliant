@@ -28,6 +28,11 @@ abstract interface class AuthTokenStore {
   Future<void> delete();
 }
 
+abstract interface class AuthServerStore {
+  Future<String?> read();
+  Future<void> write(String url);
+}
+
 class SecureAuthTokenStore implements AuthTokenStore {
   SecureAuthTokenStore([FlutterSecureStorage? storage])
     : _storage = storage ?? const FlutterSecureStorage();
@@ -57,6 +62,35 @@ class SecureAuthTokenStore implements AuthTokenStore {
       throw const AuthApiException(
         'El almacenamiento seguro no está disponible en esta plataforma.',
         code: 'SECURE_STORAGE_UNAVAILABLE',
+      );
+    }
+  }
+}
+
+class SecureAuthServerStore implements AuthServerStore {
+  SecureAuthServerStore([FlutterSecureStorage? storage])
+    : _storage = storage ?? const FlutterSecureStorage();
+
+  static const _serverKey = 'brilliant_server_url';
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<String?> read() => _guard(() => _storage.read(key: _serverKey));
+
+  @override
+  Future<void> write(String url) =>
+      _guard(() => _storage.write(key: _serverKey, value: url));
+
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on PlatformException {
+      throw const AuthApiException(
+        'No se pudo guardar la dirección del servidor.',
+      );
+    } on MissingPluginException {
+      throw const AuthApiException(
+        'El almacenamiento de la dirección no está disponible en esta plataforma.',
       );
     }
   }
@@ -131,17 +165,20 @@ class AuthClient implements AuthGateway {
     required String baseUrl,
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
+    AuthServerStore? serverStore,
     this.onDiagnostic,
   }) : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
        _httpClient = httpClient ?? http.Client(),
-       _tokenStore = tokenStore ?? SecureAuthTokenStore();
+       _tokenStore = tokenStore ?? SecureAuthTokenStore(),
+       _serverStore = serverStore ?? SecureAuthServerStore();
 
   factory AuthClient.fromEnvironment({
     http.Client? httpClient,
     AuthTokenStore? tokenStore,
   }) {
     const configuredUrl = String.fromEnvironment('BRILLIANT_API_URL');
-    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final selectedUrl = configuredUrl.isNotEmpty
         ? configuredUrl
         : kReleaseMode
@@ -152,9 +189,10 @@ class AuthClient implements AuthGateway {
         ? 'http://10.0.2.2:3000'
         : 'http://localhost:3000';
     if (selectedUrl == null) {
-      throw StateError(
-        'Configura BRILLIANT_API_URL con la URL HTTPS del servidor antes '
-        'de compilar la versión de producción.',
+      return AuthClient(
+        baseUrl: '',
+        httpClient: httpClient,
+        tokenStore: tokenStore,
       );
     }
 
@@ -187,14 +225,96 @@ class AuthClient implements AuthGateway {
 
   static final AuthClient shared = AuthClient.fromEnvironment();
 
-  final String _baseUrl;
+  String _baseUrl;
   final http.Client _httpClient;
   final AuthTokenStore _tokenStore;
+  final AuthServerStore _serverStore;
   final void Function(AuthRequestDiagnostic diagnostic)? onDiagnostic;
   static final Random _requestIdRandom = Random.secure();
 
   static bool _isLoopbackHost(String host) =>
       host == 'localhost' || host == '127.0.0.1' || host == '::1';
+
+  String get baseUrl => _baseUrl;
+
+  Future<void> restoreServer() async {
+    final stored = await _serverStore.read();
+    if (stored != null) {
+      try {
+        _baseUrl = _normalizeServerUrl(stored);
+      } on AuthApiException {
+        _baseUrl = '';
+        rethrow;
+      }
+    }
+  }
+
+  static String _normalizeServerUrl(String input) {
+    final value = input.trim();
+    final withScheme = value.contains('://')
+        ? value
+        : '${kReleaseMode ? 'https' : 'http'}://$value';
+    final uri = Uri.tryParse(withScheme);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        (uri.hasPort && (uri.port < 1 || uri.port > 65535))) {
+      throw const AuthApiException(
+        'Ingresa una dirección válida, por ejemplo 192.168.1.10:3000.',
+      );
+    }
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw const AuthApiException(
+        'En producción el servidor debe usar HTTPS.',
+      );
+    }
+    return uri
+        .replace(
+          path: '',
+          port: uri.hasPort || value.contains('://') ? null : 3000,
+        )
+        .toString();
+  }
+
+  Future<void> selectServer(String address) async {
+    final url = _normalizeServerUrl(address);
+    try {
+      final request = http.Request('GET', Uri.parse('$url/health'))
+        ..followRedirects = false;
+      final response = await http.Response.fromStream(
+        await _httpClient.send(request).timeout(const Duration(seconds: 5)),
+      ).timeout(const Duration(seconds: 5));
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200 ||
+          body is! Map ||
+          body['status'] != 'ok' ||
+          body['service'] != 'brilliant') {
+        throw const AuthApiException(
+          'La dirección no respondió como un servidor Brilliant.',
+        );
+      }
+    } on FormatException {
+      throw const AuthApiException(
+        'La dirección no respondió como un servidor Brilliant.',
+      );
+    } on SocketException {
+      throw const AuthApiException('No se pudo conectar con ese servidor.');
+    } on http.ClientException {
+      throw const AuthApiException('No se pudo conectar con ese servidor.');
+    } on TimeoutException {
+      throw const AuthApiException('El servidor tardó demasiado en responder.');
+    }
+    if (url != _baseUrl) {
+      await _tokenStore.delete();
+      await _serverStore.write(url);
+      _baseUrl = url;
+    }
+  }
 
   Future<http.Response> authenticatedRequest(
     String method,
@@ -323,9 +443,13 @@ class AuthClient implements AuthGateway {
     Object? body,
     String? token,
   }) async {
+    if (_baseUrl.isEmpty) {
+      throw const AuthApiException('Selecciona un servidor para continuar.');
+    }
     final requestId = _newRequestId();
     final stopwatch = Stopwatch()..start();
     final request = http.Request(method, Uri.parse('$_baseUrl$path'))
+      ..followRedirects = false
       ..headers['accept'] = 'application/json'
       ..headers['x-request-id'] = requestId;
     if (body != null) {

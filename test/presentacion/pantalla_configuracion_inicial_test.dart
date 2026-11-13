@@ -89,15 +89,19 @@ void main() {
     expect(find.byType(PantallaJuego), findsOneWidget);
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byKey(const Key('mobile-game-controls')), findsOneWidget);
+    expect(find.byKey(const Key('show-game-scores')), findsOneWidget);
     final tableroRect = tester.getRect(find.byType(TableroWidget));
-    final puntuacionesRect = tester.getRect(
-      find.byType(PuntuacionesDisponiblesWidget),
+    final controlesRect = tester.getRect(
+      find.byKey(const Key('mobile-game-controls')),
     );
     expect(tableroRect.width, tableroRect.height);
-    expect(tableroRect.width, greaterThan(250));
-    expect(tableroRect.bottom, lessThan(puntuacionesRect.top));
-    expect(puntuacionesRect.right, lessThanOrEqualTo(320));
+    expect(tableroRect.width, greaterThan(150));
+    expect(tableroRect.bottom, lessThan(controlesRect.top));
+    expect(controlesRect.right, lessThanOrEqualTo(320));
+    await tester.tap(find.byKey(const Key('show-game-scores')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PuntuacionesDisponiblesWidget), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -127,6 +131,74 @@ void main() {
     expect(tableroRect.width, greaterThan(500));
     expect(tableroRect.width, tableroRect.height);
     expect(tableroRect.right, lessThan(puntuacionesRect.left));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('inicia la partida individual desde el diseño móvil', (
+    tester,
+  ) async {
+    final binding = TestWidgetsFlutterBinding.instance;
+    binding.window.physicalSizeTestValue = const Size(320, 740);
+    binding.window.devicePixelRatioTestValue = 1;
+
+    await tester.pumpWidget(
+      const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jugar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapa 1'));
+    await tester.pumpAndSettle();
+
+    for (var n = 1; n <= 6; n++) {
+      final numero = find.widgetWithText(OutlinedButton, '$n');
+      await tester.ensureVisible(numero);
+      await tester.tap(numero);
+      await tester.pump();
+    }
+
+    final inicio = find.widgetWithText(FilledButton, 'Inicio');
+    expect(tester.widget<FilledButton>(inicio).onPressed, isNotNull);
+
+    await tester.tap(inicio);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BotonInicio), findsNothing);
+    expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('inicia la partida individual desde el diseño de escritorio', (
+    tester,
+  ) async {
+    final binding = TestWidgetsFlutterBinding.instance;
+    binding.window.physicalSizeTestValue = const Size(1200, 900);
+    binding.window.devicePixelRatioTestValue = 1;
+
+    await tester.pumpWidget(
+      const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jugar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapa 1'));
+    await tester.pumpAndSettle();
+
+    for (var n = 1; n <= 6; n++) {
+      final numero = find.widgetWithText(OutlinedButton, '$n');
+      await tester.ensureVisible(numero);
+      await tester.tap(numero);
+      await tester.pump();
+    }
+
+    final inicio = find.widgetWithText(FilledButton, 'Inicio');
+    expect(tester.widget<FilledButton>(inicio).onPressed, isNotNull);
+
+    await tester.tap(inicio);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BotonInicio), findsNothing);
+    expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

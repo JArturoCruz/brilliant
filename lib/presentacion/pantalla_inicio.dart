@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../datos/autenticacion/auth_client.dart';
 import '../datos/multijugador/multiplayer_client.dart';
+import '../datos/servidores/descubrimiento.dart';
 import 'pantalla_cuenta.dart';
 import 'pantalla_instrucciones.dart';
 import 'pantalla_multijugador.dart';
@@ -9,10 +12,16 @@ import 'seleccion_mapa/pantalla_seleccion_mapa.dart';
 import 'tema_mesa.dart';
 
 class PantallaInicio extends StatefulWidget {
-  const PantallaInicio({this.authGateway, this.multiplayerClient, super.key});
+  const PantallaInicio({
+    this.authGateway,
+    this.multiplayerClient,
+    this.descubrir = descubrirServidores,
+    super.key,
+  });
 
   final AuthGateway? authGateway;
   final MultiplayerClient? multiplayerClient;
+  final Future<List<String>> Function() descubrir;
 
   @override
   State<PantallaInicio> createState() => _PantallaInicioState();
@@ -25,11 +34,88 @@ class _PantallaInicioState extends State<PantallaInicio> {
   String? _sessionError;
   bool _canRetrySession = false;
   bool _isLoading = true;
+  bool _isSearching = false;
+  final _serverController = TextEditingController();
+  List<String> _servers = [];
+  String? _serverMessage;
+
+  AuthClient? get _authClient =>
+      _authGateway is AuthClient ? _authGateway as AuthClient : null;
 
   @override
   void initState() {
     super.initState();
-    _restoreSession();
+    _initialize();
+    if (_authClient != null) _searchServers();
+  }
+
+  @override
+  void dispose() {
+    _serverController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await _authClient?.restoreServer();
+      if (!mounted) return;
+      _serverController.text = _authClient?.baseUrl ?? '';
+      await _restoreSession();
+    } on AuthApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _sessionError = error.userMessage;
+          _canRetrySession = true;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _searchServers() async {
+    setState(() {
+      _isSearching = true;
+      _serverMessage = null;
+    });
+    try {
+      final servers = await widget.descubrir();
+      if (mounted) {
+        setState(() {
+          _servers = servers;
+          _serverMessage = servers.isEmpty
+              ? 'No se encontraron servidores. Escribe una dirección.'
+              : 'Selecciona un servidor detectado o escribe una dirección.';
+        });
+      }
+    } on SocketException catch (error) {
+      if (mounted) {
+        setState(
+          () => _serverMessage = 'No se pudo buscar en la red local: $error',
+        );
+      }
+    } on UnsupportedError catch (error) {
+      if (mounted) setState(() => _serverMessage = error.message);
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _connectServer() async {
+    final client = _authClient;
+    if (client == null) return;
+    setState(() {
+      _isLoading = true;
+      _serverMessage = null;
+    });
+    try {
+      await client.selectServer(_serverController.text);
+      if (!mounted) return;
+      _serverController.text = client.baseUrl;
+      setState(() => _serverMessage = 'Servidor seleccionado.');
+    } on AuthApiException catch (error) {
+      if (mounted) setState(() => _serverMessage = error.userMessage);
+    }
+    if (mounted) await _restoreSession();
   }
 
   Future<void> _restoreSession() async {
@@ -57,7 +143,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
 
   Future<void> _retrySession() async {
     setState(() => _isLoading = true);
-    await _restoreSession();
+    await _initialize();
   }
 
   Future<void> _openAccount() async {
@@ -92,8 +178,14 @@ class _PantallaInicioState extends State<PantallaInicio> {
     if (user == null) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            PantallaMultijugador(user: user, client: widget.multiplayerClient),
+        builder: (_) => PantallaMultijugador(
+          user: user,
+          client:
+              widget.multiplayerClient ??
+              (_authClient == null
+                  ? null
+                  : MultiplayerClient(authClient: _authClient!)),
+        ),
       ),
     );
   }
@@ -188,6 +280,94 @@ class _PantallaInicioState extends State<PantallaInicio> {
                         ),
                       ),
                       const SizedBox(height: 24),
+                      if (_authClient != null) ...[
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'Servidor',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                                const SizedBox(height: 12),
+                                if (_servers.isNotEmpty)
+                                  KeyedSubtree(
+                                    key: ValueKey(_servers.join('|')),
+                                    child: DropdownButtonFormField<String>(
+                                      key: const Key('server-list'),
+                                      hint: const Text('Servidores detectados'),
+                                      items: _servers
+                                          .map(
+                                            (server) => DropdownMenuItem(
+                                              value: server,
+                                              child: Text(server),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: _isLoading
+                                          ? null
+                                          : (server) {
+                                              if (server != null) {
+                                                _serverController.text = server;
+                                              }
+                                            },
+                                    ),
+                                  ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  key: const Key('server-address'),
+                                  controller: _serverController,
+                                  enabled: !_isLoading,
+                                  keyboardType: TextInputType.url,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Dirección IP o URL',
+                                    hintText: '192.168.1.10:3000',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Cambiar de servidor cierra la sesión en este dispositivo. '
+                                  'Selecciona solo servidores de confianza.',
+                                ),
+                                if (_serverMessage != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(_serverMessage!),
+                                ],
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    TextButton.icon(
+                                      key: const Key('search-servers'),
+                                      onPressed: _isSearching
+                                          ? null
+                                          : _searchServers,
+                                      icon: const Icon(Icons.refresh),
+                                      label: Text(
+                                        _isSearching
+                                            ? 'Buscando...'
+                                            : 'Buscar servidores',
+                                      ),
+                                    ),
+                                    FilledButton(
+                                      key: const Key('connect-server'),
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _connectServer,
+                                      child: const Text('Conectar'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       if (_isLoading)
                         const Padding(
                           padding: EdgeInsets.all(20),

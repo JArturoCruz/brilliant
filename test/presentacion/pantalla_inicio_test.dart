@@ -4,6 +4,26 @@ import 'package:brilliant/presentacion/pantalla_instrucciones.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/pantalla_seleccion_mapa.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+class _TokenStore implements AuthTokenStore {
+  String? token;
+  @override
+  Future<String?> read() async => token;
+  @override
+  Future<void> write(String value) async => token = value;
+  @override
+  Future<void> delete() async => token = null;
+}
+
+class _ServerStore implements AuthServerStore {
+  String? url;
+  @override
+  Future<String?> read() async => url;
+  @override
+  Future<void> write(String value) async => url = value;
+}
 
 class FakeAuthGateway implements AuthGateway {
   FakeAuthGateway({this.user, this.sessionError});
@@ -56,6 +76,99 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
+  testWidgets('permite elegir un servidor detectado y conectar', (
+    tester,
+  ) async {
+    final client = AuthClient(
+      baseUrl: 'http://old.example:3000',
+      tokenStore: _TokenStore(),
+      serverStore: _ServerStore(),
+      httpClient: MockClient(
+        (request) async =>
+            http.Response('{"status":"ok","service":"brilliant"}', 200),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: client,
+          descubrir: () async => ['http://192.168.10.8:3000'],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('server-list')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('http://192.168.10.8:3000').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('connect-server')));
+    await tester.tap(find.byKey(const Key('connect-server')));
+    await tester.pumpAndSettle();
+    expect(client.baseUrl, 'http://192.168.10.8:3000');
+    expect(find.text('Servidor seleccionado.'), findsOneWidget);
+  });
+
+  testWidgets('muestra errores al introducir una dirección manual', (
+    tester,
+  ) async {
+    final client = AuthClient(
+      baseUrl: 'http://old.example:3000',
+      tokenStore: _TokenStore(),
+      serverStore: _ServerStore(),
+      httpClient: MockClient((request) async => http.Response('{}', 200)),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(authGateway: client, descubrir: () async => []),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('server-address')),
+      '192.168.20.3',
+    );
+    await tester.ensureVisible(find.byKey(const Key('connect-server')));
+    await tester.tap(find.byKey(const Key('connect-server')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('La dirección no respondió como un servidor Brilliant.'),
+      findsOneWidget,
+    );
+    expect(client.baseUrl, 'http://old.example:3000');
+  });
+
+  testWidgets('actualiza la lista cuando cambia la IP detectada', (
+    tester,
+  ) async {
+    var servers = ['http://192.168.10.8:3000'];
+    final client = AuthClient(
+      baseUrl: 'http://old.example:3000',
+      tokenStore: _TokenStore(),
+      serverStore: _ServerStore(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(
+          authGateway: client,
+          descubrir: () async => servers,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('server-list')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('http://192.168.10.8:3000').last);
+    await tester.pumpAndSettle();
+    servers = ['http://192.168.10.9:3000'];
+    await tester.ensureVisible(find.byKey(const Key('search-servers')));
+    await tester.tap(find.byKey(const Key('search-servers')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('server-list')));
+    await tester.pumpAndSettle();
+    expect(find.text('http://192.168.10.9:3000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('no permite jugar sin una sesión iniciada', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: PantallaInicio(authGateway: FakeAuthGateway())),

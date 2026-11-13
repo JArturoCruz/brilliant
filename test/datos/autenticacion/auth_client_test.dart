@@ -19,12 +19,111 @@ class MemoryTokenStore implements AuthTokenStore {
   Future<void> delete() async => token = null;
 }
 
+class MemoryServerStore implements AuthServerStore {
+  String? url;
+
+  @override
+  Future<String?> read() async => url;
+
+  @override
+  Future<void> write(String value) async => url = value;
+}
+
 void main() {
   const user = {
     'id': 'user-1',
     'name': 'Player One',
     'email': 'player@example.com',
   };
+
+  test(
+    'selecciona y recuerda un servidor sin enviarle el token anterior',
+    () async {
+      final tokens = MemoryTokenStore()..token = 'old-token';
+      final servers = MemoryServerStore();
+      final client = AuthClient(
+        baseUrl: 'http://old.example:3000',
+        tokenStore: tokens,
+        serverStore: servers,
+        httpClient: MockClient((request) async {
+          expect(request.url.toString(), 'http://192.168.10.8:3000/health');
+          expect(request.headers['authorization'], isNull);
+          return http.Response('{"status":"ok","service":"brilliant"}', 200);
+        }),
+      );
+
+      await client.selectServer('192.168.10.8');
+      expect(tokens.token, isNull);
+      expect(client.baseUrl, 'http://192.168.10.8:3000');
+      expect(servers.url, client.baseUrl);
+
+      final restarted = AuthClient(
+        baseUrl: 'http://old.example:3000',
+        tokenStore: tokens,
+        serverStore: servers,
+      );
+      await restarted.restoreServer();
+      expect(restarted.baseUrl, client.baseUrl);
+    },
+  );
+
+  test(
+    'inicia sesión y usa el servidor seleccionado para multijugador',
+    () async {
+      final tokens = MemoryTokenStore()..token = 'old-token';
+      final client = AuthClient(
+        baseUrl: 'http://old.example:3000',
+        tokenStore: tokens,
+        serverStore: MemoryServerStore(),
+        httpClient: MockClient((request) async {
+          expect(request.url.host, '192.168.10.8');
+          if (request.url.path == '/health') {
+            expect(request.headers['authorization'], isNull);
+            return http.Response('{"status":"ok","service":"brilliant"}', 200);
+          }
+          if (request.url.path == '/api/auth/sign-in/email') {
+            expect(request.headers['authorization'], isNull);
+            return http.Response(
+              jsonEncode({'user': user, 'token': 'new-token'}),
+              200,
+            );
+          }
+          expect(request.url.path, '/api/multiplayer/lobby');
+          expect(request.headers['authorization'], 'Bearer new-token');
+          return http.Response('{}', 200);
+        }),
+      );
+      await client.selectServer('192.168.10.8:3000');
+      await client.signIn(
+        email: 'player@example.com',
+        password: 'a-strong-password',
+      );
+      await client.authenticatedRequest('GET', '/api/multiplayer/lobby');
+    },
+  );
+
+  test('rechaza servidores inválidos sin alterar la sesión anterior', () async {
+    final tokens = MemoryTokenStore()..token = 'old-token';
+    final client = AuthClient(
+      baseUrl: 'http://old.example:3000',
+      tokenStore: tokens,
+      serverStore: MemoryServerStore(),
+      httpClient: MockClient(
+        (request) async => http.Response('{"status":"ok"}', 200),
+      ),
+    );
+
+    await expectLater(
+      client.selectServer('http://evil.example/path'),
+      throwsA(isA<AuthApiException>()),
+    );
+    await expectLater(
+      client.selectServer('192.168.10.8:3000'),
+      throwsA(isA<AuthApiException>()),
+    );
+    expect(tokens.token, 'old-token');
+    expect(client.baseUrl, 'http://old.example:3000');
+  });
 
   test('uses the host gateway for localhost on the Android emulator', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

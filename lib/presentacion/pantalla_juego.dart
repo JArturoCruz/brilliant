@@ -762,24 +762,23 @@ class _TableroMovil extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Column(
-            children: [
-              const InstruccionZonaInicial(),
-              Expanded(
-                child: Center(
+      child: Column(
+        children: [
+          const InstruccionZonaInicial(),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final dimension = constraints.biggest.shortestSide;
+                return Center(
                   child: SizedBox.square(
-                    dimension: constraints.maxWidth
-                        .clamp(1.0, constraints.maxHeight)
-                        .toDouble(),
+                    dimension: dimension,
                     child: TableroWidget(mapa: mapa),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1014,7 +1013,10 @@ class _PanelPartida extends StatelessWidget {
                   children: [
                     const SelectorNumerosZonaInicial(),
                     const SizedBox(height: 20),
-                    BotonInicio(tablero: tablero, onStart: onStart),
+                    BotonInicio(
+                      tablero: tablero,
+                      onStart: multiplayer ? onStart : null,
+                    ),
                   ],
                 );
               }
