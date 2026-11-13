@@ -4,32 +4,48 @@ Brilliant is a Flutter game that requires an authenticated account before
 opening game content. Account credentials and session tokens are handled by
 the independent Brilliant Auth Server.
 
-## Run locally
+## Conectar y jugar
 
-Start the auth server in one terminal:
-
-```powershell
-cd C:\flutter\server\brilliant-auth-server
-npm run dev
-```
-
-Start Flutter in another terminal:
+Inicia el servidor en el equipo que alojará las cuentas y las partidas:
 
 ```powershell
-cd C:\flutter\brilliant
-flutter run -d chrome --dart-define=BRILLIANT_API_URL=http://localhost:3000
+cd C:\serverbrilliant\serverBrilliant
+npm.cmd run build
+npm.cmd start
 ```
 
-When Chrome serves the app from the same computer as the server, it derives
-the API hostname from the page's hostname and uses port 3000. You can omit
-`--dart-define` in this local setup.
+En otro terminal ejecuta el cliente:
 
-For the Android Studio emulator, the default `localhost` (or `127.0.0.1`) is
-translated to `10.0.2.2`, the emulator's route to the host computer. On a
-physical phone or another computer, select or enter the server address on the
-start screen. A DNS name such as `brilliant-server.local` must be configured
-in the network's DNS/mDNS; the project name alone is not a network address.
-Local HTTP is enabled only in Android debug builds.
+```powershell
+cd C:\brilliant\brilliant
+flutter run -d chrome
+```
+
+En la pantalla inicial escribe la IP o URL del servidor y pulsa **Conectar**.
+Después crea una cuenta o inicia sesión para acceder al juego y al
+multijugador. Se verifica el servidor antes de habilitar la cuenta. La
+dirección se recuerda y cambiar de servidor cierra la sesión local.
+
+- En el equipo servidor, usa `localhost:3000`.
+- En otro equipo o teléfono de la misma red, usa la IPv4 del servidor y el
+  puerto, por ejemplo `192.168.1.10:3000`. Consulta la IPv4 con `ipconfig` en
+  el equipo servidor.
+- En el emulador Android Studio, usa `10.0.2.2:3000` para alcanzar el equipo
+  anfitrión; `localhost` dentro del emulador no es el equipo anfitrión.
+- Desde otra red, usa la dirección pública o dominio accesible del servidor;
+  una IP privada como `192.168.x.x` no es enrutable por Internet. Deben
+  configurarse la red, el firewall y, cuando corresponda, el router o VPN.
+  Para Internet utiliza HTTPS con certificado válido, preferiblemente mediante
+  un dominio y un proxy inverso. No expongas el servidor HTTP de desarrollo.
+
+Al introducir solo un nombre o IP, se usa el puerto 3000 y HTTP en modo de
+desarrollo; en producción se usa HTTPS. Para otro puerto o HTTPS en desarrollo,
+escribe la URL completa, por ejemplo `https://juego.ejemplo.com`.
+El certificado debe ser válido para el nombre o IP utilizado y confiable en
+cada dispositivo. El servidor escucha en todas las interfaces, pero el código
+no puede configurar automáticamente el firewall, NAT, DNS ni los certificados.
+Consulta la configuración y las restricciones del navegador en el README del
+servidor.
 
 To build a debug APK for a physical Android phone on the same private Wi-Fi:
 
@@ -46,16 +62,16 @@ in again. Select only servers you trust: discovery and the health check do not
 authenticate the server.
 
 Automatic discovery uses UDP broadcast on port 38971 and works only on the
-same local network when broadcasts are allowed. The server must be updated and
-restarted with the discovery changes. Allow inbound UDP 38971 on the server's
-private firewall profile in addition to TCP 3000. Guest networks, VPNs and
-client isolation may prevent discovery. Web browsers cannot perform UDP
-discovery; enter the address manually and configure the server's CORS origins.
-On iOS, allow access to the local network when prompted.
+same local network when broadcasts are allowed. Allow inbound UDP 38971 on the
+server's private firewall profile in addition to TCP 3000. Guest networks,
+VPNs and client isolation may prevent discovery. Web browsers cannot perform
+UDP discovery; enter the address manually. On iOS, allow access to the local
+network when prompted. Discovery advertises HTTP addresses; release builds
+require an HTTPS address entered manually.
 
-The server must be running and listening on the network. Set its
-`BETTER_AUTH_URL` in the server `.env` to the same LAN URL, then restart it.
-Connect the phone to the same Wi-Fi. On Windows, set that network's profile to
+The server must be running and listening on the network. Configure its `.env`
+as described in the server README, then restart it. Connect the phone to the
+same Wi-Fi. On Windows, set that network's profile to
 **Private**, then run this in PowerShell as Administrator to allow only local
 subnet devices to connect:
 
@@ -78,10 +94,11 @@ discovery. Use a valid HTTPS hostname and certificate in production. This projec
 signing key for release builds, which is suitable only for local sideload
 testing, not for publishing or secure long-term updates.
 
-Chrome local is allowed on any Flutter development port. If you host the web
-app under a non-local hostname, add its exact origin to `CLIENT_ORIGINS` in the
-server configuration. For access outside the local network, deploy the server
-behind HTTPS and use its stable domain.
+For web, add the exact origin of the page, including its port, to
+`CLIENT_ORIGINS` on the server. An HTTPS page cannot call an HTTP server
+(mixed-content restriction). Web secure storage also requires a secure context:
+HTTPS or localhost, not a plain HTTP page served from a LAN IP. Browser local
+network permission and security restrictions can also affect access.
 
 ## Multiplayer
 

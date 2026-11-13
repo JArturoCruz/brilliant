@@ -68,6 +68,28 @@ void main() {
   );
 
   test(
+    'recuerda la dirección inicial al conectarse al mismo servidor',
+    () async {
+      final tokens = MemoryTokenStore()..token = 'session-token';
+      final servers = MemoryServerStore();
+      final client = AuthClient(
+        baseUrl: 'http://localhost:3000',
+        tokenStore: tokens,
+        serverStore: servers,
+        httpClient: MockClient(
+          (_) async =>
+              http.Response('{"status":"ok","service":"brilliant"}', 200),
+        ),
+      );
+
+      await client.selectServer('http://localhost:3000');
+
+      expect(servers.url, 'http://localhost:3000');
+      expect(tokens.token, 'session-token');
+    },
+  );
+
+  test(
     'inicia sesión y usa el servidor seleccionado para multijugador',
     () async {
       final tokens = MemoryTokenStore()..token = 'old-token';

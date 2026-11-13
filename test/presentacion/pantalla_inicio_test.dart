@@ -76,6 +76,39 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
+  testWidgets('exige conectar antes de acceder a la cuenta', (tester) async {
+    final client = AuthClient(
+      baseUrl: '',
+      tokenStore: _TokenStore(),
+      serverStore: _ServerStore(),
+      httpClient: MockClient(
+        (_) async =>
+            http.Response('{"status":"ok","service":"brilliant"}', 200),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaInicio(authGateway: client, descubrir: () async => []),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final accountButton = find.widgetWithText(
+      OutlinedButton,
+      'Crear cuenta o iniciar sesión',
+    );
+    expect(tester.widget<OutlinedButton>(accountButton).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('server-address')),
+      '192.168.10.8',
+    );
+    await tester.ensureVisible(find.byKey(const Key('connect-server')));
+    await tester.tap(find.byKey(const Key('connect-server')));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<OutlinedButton>(accountButton).onPressed, isNotNull);
+  });
+
   testWidgets('permite elegir un servidor detectado y conectar', (
     tester,
   ) async {

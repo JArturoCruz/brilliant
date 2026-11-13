@@ -35,6 +35,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
   bool _canRetrySession = false;
   bool _isLoading = true;
   bool _isSearching = false;
+  bool _serverConnected = false;
   final _serverController = TextEditingController();
   List<String> _servers = [];
   String? _serverMessage;
@@ -60,10 +61,18 @@ class _PantallaInicioState extends State<PantallaInicio> {
       await _authClient?.restoreServer();
       if (!mounted) return;
       _serverController.text = _authClient?.baseUrl ?? '';
+      final client = _authClient;
+      if (client != null && client.baseUrl.isNotEmpty) {
+        await client.selectServer(client.baseUrl);
+        if (!mounted) return;
+        setState(() => _serverConnected = true);
+      }
       await _restoreSession();
     } on AuthApiException catch (error) {
       if (mounted) {
         setState(() {
+          _serverConnected = false;
+          _user = null;
           _sessionError = error.userMessage;
           _canRetrySession = true;
           _isLoading = false;
@@ -106,16 +115,29 @@ class _PantallaInicioState extends State<PantallaInicio> {
     setState(() {
       _isLoading = true;
       _serverMessage = null;
+      _sessionError = null;
+      _canRetrySession = false;
     });
     try {
       await client.selectServer(_serverController.text);
       if (!mounted) return;
       _serverController.text = client.baseUrl;
-      setState(() => _serverMessage = 'Servidor seleccionado.');
+      setState(() {
+        _serverConnected = true;
+        _serverMessage = 'Servidor seleccionado.';
+      });
     } on AuthApiException catch (error) {
       if (mounted) setState(() => _serverMessage = error.userMessage);
     }
-    if (mounted) await _restoreSession();
+    if (!mounted) return;
+    if (_serverConnected) {
+      await _restoreSession();
+    } else {
+      setState(() {
+        _user = null;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -390,7 +412,10 @@ class _PantallaInicioState extends State<PantallaInicio> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _sessionError ?? 'Crea una cuenta o inicia sesión para jugar.',
+                                  _sessionError ??
+                                      (_authClient != null && !_serverConnected
+                                          ? 'Conecta un servidor para crear una cuenta o iniciar sesión.'
+                                          : 'Crea una cuenta o inicia sesión para jugar.'),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -441,7 +466,11 @@ class _PantallaInicioState extends State<PantallaInicio> {
                         const SizedBox(height: 12),
                       ],
                       OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _openAccount,
+                        onPressed:
+                            _isLoading ||
+                                (_authClient != null && !_serverConnected)
+                            ? null
+                            : _openAccount,
                         icon: const Icon(Icons.person_outline),
                         label: Text(
                           _user == null

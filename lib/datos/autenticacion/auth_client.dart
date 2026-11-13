@@ -181,10 +181,8 @@ class AuthClient implements AuthGateway {
         !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final selectedUrl = configuredUrl.isNotEmpty
         ? configuredUrl
-        : kReleaseMode
+        : kReleaseMode || kIsWeb
         ? null
-        : kIsWeb
-        ? Uri(scheme: 'http', host: Uri.base.host, port: 3000).toString()
         : isAndroid
         ? 'http://10.0.2.2:3000'
         : 'http://localhost:3000';
@@ -309,11 +307,9 @@ class AuthClient implements AuthGateway {
     } on TimeoutException {
       throw const AuthApiException('El servidor tardó demasiado en responder.');
     }
-    if (url != _baseUrl) {
-      await _tokenStore.delete();
-      await _serverStore.write(url);
-      _baseUrl = url;
-    }
+    if (url != _baseUrl) await _tokenStore.delete();
+    await _serverStore.write(url);
+    _baseUrl = url;
   }
 
   Future<http.Response> authenticatedRequest(
