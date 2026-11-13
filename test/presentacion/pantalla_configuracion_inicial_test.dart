@@ -22,13 +22,12 @@ class _AuthenticatedGateway implements AuthGateway {
   @override
   Future<AuthUser> register({
     required String name,
-    required String email,
     required String password,
   }) async => _user;
 
   @override
   Future<AuthUser> signIn({
-    required String email,
+    required String name,
     required String password,
   }) async => _user;
 
@@ -90,17 +89,22 @@ void main() {
     expect(find.byType(TableroWidget), findsOneWidget);
     expect(find.byType(BotonInicio), findsOneWidget);
     expect(find.byKey(const Key('mobile-game-controls')), findsOneWidget);
-    expect(find.byKey(const Key('show-game-scores')), findsOneWidget);
     final tableroRect = tester.getRect(find.byType(TableroWidget));
     final controlesRect = tester.getRect(
       find.byKey(const Key('mobile-game-controls')),
     );
     expect(tableroRect.width, tableroRect.height);
     expect(tableroRect.width, greaterThan(150));
-    expect(tableroRect.bottom, lessThan(controlesRect.top));
     expect(controlesRect.right, lessThanOrEqualTo(320));
-    await tester.tap(find.byKey(const Key('show-game-scores')));
+    await tester.drag(
+      find.byKey(const Key('mobile-game-content')),
+      const Offset(0, -250),
+    );
     await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const Key('mobile-game-controls'))),
+      controlesRect,
+    );
     expect(find.byType(PuntuacionesDisponiblesWidget), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

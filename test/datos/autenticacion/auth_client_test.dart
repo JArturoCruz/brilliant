@@ -103,7 +103,7 @@ void main() {
             expect(request.headers['authorization'], isNull);
             return http.Response('{"status":"ok","service":"brilliant"}', 200);
           }
-          if (request.url.path == '/api/auth/sign-in/email') {
+          if (request.url.path == '/api/auth/sign-in/username') {
             expect(request.headers['authorization'], isNull);
             return http.Response(
               jsonEncode({'user': user, 'token': 'new-token'}),
@@ -116,10 +116,7 @@ void main() {
         }),
       );
       await client.selectServer('192.168.10.8:3000');
-      await client.signIn(
-        email: 'player@example.com',
-        password: 'a-strong-password',
-      );
+      await client.signIn(name: 'Player One', password: 'a-strong-password');
       await client.authenticatedRequest('GET', '/api/multiplayer/lobby');
     },
   );
@@ -200,11 +197,11 @@ void main() {
             ),
           ),
         );
-        expect(jsonDecode(request.body), {
-          'name': 'Player One',
-          'email': 'player@example.com',
-          'password': 'a-strong-password',
-        });
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['name'], 'Player One');
+        expect(body['username'], 'Player One');
+        expect(body['email'], endsWith('@brilliant.invalid'));
+        expect(body['password'], '123456');
         return http.Response(
           jsonEncode({'token': 'session-token', 'user': user}),
           200,
@@ -215,8 +212,7 @@ void main() {
 
     final account = await client.register(
       name: 'Player One',
-      email: 'player@example.com',
-      password: 'a-strong-password',
+      password: '123456',
     );
 
     expect(account.email, 'player@example.com');
@@ -337,7 +333,7 @@ void main() {
     );
 
     await expectLater(
-      client.signIn(email: 'player@example.com', password: 'a-strong-password'),
+      client.signIn(name: 'Player One', password: 'a-strong-password'),
       throwsA(
         isA<AuthApiException>()
             .having((error) => error.statusCode, 'status code', 429)

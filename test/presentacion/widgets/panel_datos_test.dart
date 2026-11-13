@@ -8,6 +8,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('avisa cuando solo uno de los dados puede ser ancla', (
+    tester,
+  ) async {
+    var dado = 1;
+    final bloc = JuegoBloc(tirarDado: () => dado++);
+    addTearDown(bloc.close);
+    bloc.add(IniciarTurno({const Posicion(0, 0): 1}));
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.seleccionandoAncla,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(value: bloc, child: const PanelDados()),
+        ),
+      ),
+    );
+    expect(
+      find.text('El dado 2 no puede usarse como ancla en esta ronda.'),
+      findsOneWidget,
+    );
+    expect(bloc.puedeUsarComoAncla(1, 2), isTrue);
+    expect(bloc.puedeUsarComoAncla(2, 1), isFalse);
+  });
+
   testWidgets('los dados usan animación de giro al lanzarse', (tester) async {
     var siguienteDado = 1;
     final bloc = JuegoBloc(tirarDado: () => siguienteDado++);

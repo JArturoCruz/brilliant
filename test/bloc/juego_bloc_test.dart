@@ -145,6 +145,10 @@ void main() {
           bloc.state.tablero[0][0].iluminacion,
           EstadoIluminacion.posibleAncla,
         );
+        expect(
+          bloc.state.tablero[0][1].iluminacion,
+          EstadoIluminacion.posibleColocacion,
+        );
 
         bloc.add(SeleccionarCasillaAncla(0, 0));
         await bloc.stream.firstWhere(

@@ -45,6 +45,33 @@ class MapaTablero {
 
   String claveGrupoPuntuacion(RegionTablero region) => region.name;
 
+  bool regionEstaFragmentada(RegionTablero region) {
+    final posiciones = coordenadasPorRegion[region]?.toSet() ?? <Posicion>{};
+    if (posiciones.isEmpty) return false;
+    final pendientes = <Posicion>[posiciones.first];
+    final visitadas = <Posicion>{};
+    while (pendientes.isNotEmpty) {
+      final actual = pendientes.removeLast();
+      if (!visitadas.add(actual)) continue;
+      for (final (df, dc) in const [(-1, 0), (1, 0), (0, -1), (0, 1)]) {
+        final vecina = Posicion(actual.fila + df, actual.columna + dc);
+        if (posiciones.contains(vecina) && !visitadas.contains(vecina)) {
+          pendientes.add(vecina);
+        }
+      }
+    }
+    return visitadas.length != posiciones.length;
+  }
+
+  String etiquetaRegion(RegionTablero region) => switch (region) {
+    RegionTablero.amarilla => 'AM',
+    RegionTablero.blanca => 'BL',
+    RegionTablero.naranjaSuperior => 'N1',
+    RegionTablero.naranjaInferior => 'N2',
+    _ =>
+      '${region.name[0].toUpperCase()}${region.name.substring(region.name.length - 1)}',
+  };
+
   static const MapaTablero mapa1 = MapaTablero(
     id: 1,
     nombre: 'Mapa 1',
@@ -369,16 +396,8 @@ class MapaTablero {
       RegionTablero.verde2: [],
       RegionTablero.verde3: [],
       RegionTablero.verde4: [],
-      RegionTablero.azul1: [
-        Posicion(1, 2),
-        Posicion(3, 2),
-        Posicion(5, 2),
-      ],
-      RegionTablero.azul2: [
-        Posicion(1, 4),
-        Posicion(3, 4),
-        Posicion(5, 4),
-      ],
+      RegionTablero.azul1: [Posicion(1, 2), Posicion(3, 2), Posicion(5, 2)],
+      RegionTablero.azul2: [Posicion(1, 4), Posicion(3, 4), Posicion(5, 4)],
       RegionTablero.morada1: [
         Posicion(2, 2),
         Posicion(2, 3),

@@ -9,13 +9,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 abstract interface class AuthGateway {
-  Future<AuthUser> register({
-    required String name,
-    required String email,
-    required String password,
-  });
+  Future<AuthUser> register({required String name, required String password});
 
-  Future<AuthUser> signIn({required String email, required String password});
+  Future<AuthUser> signIn({required String name, required String password});
 
   Future<AuthUser?> currentUser();
   Future<void> signOut();
@@ -331,13 +327,17 @@ class AuthClient implements AuthGateway {
   @override
   Future<AuthUser> register({
     required String name,
-    required String email,
     required String password,
   }) async {
     final response = await _request(
       'POST',
       '/api/auth/sign-up/email',
-      body: {'name': name, 'email': email, 'password': password},
+      body: {
+        'name': name,
+        'username': name,
+        'email': '${_newRequestId()}@brilliant.invalid',
+        'password': password,
+      },
     );
     final user = _userFromAuthResponse(response.body);
     final token = _tokenFromResponse(response);
@@ -347,18 +347,18 @@ class AuthClient implements AuthGateway {
       return user;
     }
 
-    return signIn(email: email, password: password);
+    return signIn(name: name, password: password);
   }
 
   @override
   Future<AuthUser> signIn({
-    required String email,
+    required String name,
     required String password,
   }) async {
     final response = await _request(
       'POST',
-      '/api/auth/sign-in/email',
-      body: {'email': email, 'password': password},
+      '/api/auth/sign-in/username',
+      body: {'username': name, 'password': password},
     );
     final user = _userFromAuthResponse(response.body);
     final token = _tokenFromResponse(response);

@@ -24,9 +24,7 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     on<ConfirmarJugada>(_onConfirmarJugada);
     on<CancelarConfirmacion>(_onCancelarConfirmacion);
     on<SaltarTurno>(_onSaltarTurno); // NUEVO
-    on<SincronizarJuegoMultijugador>(
-      (event, emit) => emit(event.estado),
-    );
+    on<SincronizarJuegoMultijugador>((event, emit) => emit(event.estado));
   }
 
   final MapaTablero mapa;
@@ -107,19 +105,16 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     SeleccionarNumeroAncla event,
     Emitter<JuegoState> emit,
   ) {
-    var nuevoTablero = state.tablero.map((fila) {
-      return fila.map((casilla) {
-        if (casilla.valorActual == event.numeroElegido &&
-            _tieneColocacionValida(
-              casilla.fila,
-              casilla.columna,
-              event.numeroParaColocar,
-            )) {
-          return casilla.copyWith(iluminacion: EstadoIluminacion.posibleAncla);
-        }
-        return casilla.copyWith(iluminacion: EstadoIluminacion.ninguno);
-      }).toList();
-    }).toList();
+    if (!_puedeUsarComoAncla(
+      state.tablero,
+      event.numeroElegido,
+      event.numeroParaColocar,
+    ))
+      return;
+    final nuevoTablero = _iluminarOpciones(
+      event.numeroElegido,
+      event.numeroParaColocar,
+    );
 
     emit(
       state.copyWith(
@@ -210,20 +205,11 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     CancelarSeleccionAncla event,
     Emitter<JuegoState> emit,
   ) {
-    var nuevoTablero = state.tablero.map((fila) {
-      return fila.map((casilla) {
-        if (casilla.valorActual == state.numeroAncla &&
-            state.numeroColocar != null &&
-            _tieneColocacionValida(
-              casilla.fila,
-              casilla.columna,
-              state.numeroColocar!,
-            )) {
-          return casilla.copyWith(iluminacion: EstadoIluminacion.posibleAncla);
-        }
-        return casilla.copyWith(iluminacion: EstadoIluminacion.ninguno);
-      }).toList();
-    }).toList();
+    if (state.numeroAncla == null || state.numeroColocar == null) return;
+    final nuevoTablero = _iluminarOpciones(
+      state.numeroAncla!,
+      state.numeroColocar!,
+    );
 
     emit(
       state.copyWith(
@@ -470,17 +456,6 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     );
   }
 
-  bool _tieneColocacionValida(
-    int filaAncla,
-    int columnaAncla,
-    int numeroColocar,
-  ) => _tieneColocacionValidaEn(
-    state.tablero,
-    filaAncla,
-    columnaAncla,
-    numeroColocar,
-  );
-
   bool _tieneColocacionValidaEn(
     List<List<Casilla>> tablero,
     int filaAncla,
@@ -519,24 +494,68 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
     return false;
   }
 
-  bool _hayJugadaValida(
-    List<List<Casilla>> tablero,
-    int dado1,
-    int dado2,
-  ) {
-    for (final fila in tablero) {
-      for (final ancla in fila) {
-        final valor = ancla.valorActual;
-        if (valor == dado1 &&
-            _tieneColocacionValidaEn(tablero, ancla.fila, ancla.columna, dado2)) {
-          return true;
-        }
-        if (valor == dado2 &&
-            _tieneColocacionValidaEn(tablero, ancla.fila, ancla.columna, dado1)) {
-          return true;
+  bool _hayJugadaValida(List<List<Casilla>> tablero, int dado1, int dado2) {
+    return _puedeUsarComoAncla(tablero, dado1, dado2) ||
+        _puedeUsarComoAncla(tablero, dado2, dado1);
+  }
+
+  bool puedeUsarComoAncla(int numero, int otro) =>
+      _puedeUsarComoAncla(state.tablero, numero, otro);
+
+  bool _puedeUsarComoAncla(List<List<Casilla>> tablero, int numero, int otro) =>
+      tablero
+          .expand((fila) => fila)
+          .any(
+            (casilla) =>
+                casilla.valorActual == numero &&
+                _tieneColocacionValidaEn(
+                  tablero,
+                  casilla.fila,
+                  casilla.columna,
+                  otro,
+                ),
+          );
+
+  List<List<Casilla>> _iluminarOpciones(int numero, int otro) {
+    final resultado = state.tablero
+        .map(
+          (fila) => fila
+              .map(
+                (celda) =>
+                    celda.copyWith(iluminacion: EstadoIluminacion.ninguno),
+              )
+              .toList(),
+        )
+        .toList();
+    const movimientos = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+    for (final ancla in state.tablero.expand((fila) => fila)) {
+      if (ancla.valorActual != numero ||
+          !_tieneColocacionValidaEn(
+            state.tablero,
+            ancla.fila,
+            ancla.columna,
+            otro,
+          ))
+        continue;
+      resultado[ancla.fila][ancla.columna] =
+          resultado[ancla.fila][ancla.columna].copyWith(
+            iluminacion: EstadoIluminacion.posibleAncla,
+          );
+      for (final (df, dc) in movimientos) {
+        final f = ancla.fila + df;
+        final c = ancla.columna + dc;
+        if (f >= 0 &&
+            f < 7 &&
+            c >= 0 &&
+            c < 7 &&
+            state.tablero[f][c].valorActual == null &&
+            _validarReglaDeRegionEn(state.tablero, f, c, otro)) {
+          resultado[f][c] = resultado[f][c].copyWith(
+            iluminacion: EstadoIluminacion.posibleColocacion,
+          );
         }
       }
     }
-    return false;
+    return resultado;
   }
 }

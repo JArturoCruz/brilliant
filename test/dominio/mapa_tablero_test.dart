@@ -10,6 +10,21 @@ import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'identifica zonas fragmentadas sin confundirlas con zonas contiguas',
+    () {
+      const mapa = MapaTablero.mapa1;
+      expect(mapa.regionEstaFragmentada(RegionTablero.amarilla), isTrue);
+      expect(mapa.etiquetaRegion(RegionTablero.amarilla), 'AM');
+      expect(mapa.regionEstaFragmentada(RegionTablero.azul1), isFalse);
+      expect(mapa.regionEstaFragmentada(RegionTablero.blanca), isFalse);
+      expect(
+        mapa.etiquetaRegion(RegionTablero.verde1),
+        isNot(mapa.etiquetaRegion(RegionTablero.verde2)),
+      );
+    },
+  );
+
   group('MapaTablero.mapa2', () {
     test('asigna exactamente una región a cada una de las 49 casillas', () {
       final posiciones = <Posicion>[];

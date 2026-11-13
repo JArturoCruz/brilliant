@@ -8,9 +8,10 @@ import '../../../dominio/zona_inicial.dart';
 import '../../tema_mesa.dart';
 
 class VistaPreviaMapa extends StatelessWidget {
-  const VistaPreviaMapa({required this.mapa, super.key});
+  const VistaPreviaMapa({required this.mapa, this.valores, super.key});
 
   final MapaTablero mapa;
+  final List<List<int?>>? valores;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +44,8 @@ class VistaPreviaMapa extends StatelessWidget {
                           esInicial: posicionesIniciales.contains(
                             Posicion(fila, columna),
                           ),
+                          valor: valores?[fila][columna],
+                          mostrarInicial: valores == null,
                         ),
                       ),
                   ],
@@ -60,11 +63,15 @@ class _CeldaPrevia extends StatelessWidget {
     required this.mapa,
     required this.posicion,
     required this.esInicial,
+    required this.valor,
+    required this.mostrarInicial,
   });
 
   final MapaTablero mapa;
   final Posicion posicion;
   final bool esInicial;
+  final int? valor;
+  final bool mostrarInicial;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +92,18 @@ class _CeldaPrevia extends StatelessWidget {
             ? Border.all(color: TemaMesa.nogal.withAlpha(90), width: 0.5)
             : null,
       ),
-      child: esInicial
+      child: valor != null
+          ? FittedBox(
+              child: Text(
+                '$valor',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                ),
+              ),
+            )
+          : esInicial && mostrarInicial
           ? Center(
               child: Container(
                 width: 3,

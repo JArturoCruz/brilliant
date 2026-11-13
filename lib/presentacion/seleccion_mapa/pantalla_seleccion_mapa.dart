@@ -10,22 +10,10 @@ class PantallaSeleccionMapa extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mapas = [
-      _MapaDisponible.disponible(
-        mapa: MapaTablero.mapa1,
-        descripcion: 'Disponible',
-      ),
-      _MapaDisponible.disponible(
-        mapa: MapaTablero.mapa2,
-        descripcion: 'Disponible',
-      ),
-      _MapaDisponible.disponible(
-        mapa: MapaTablero.mapa3,
-        descripcion: 'Disponible',
-      ),
-      _MapaDisponible.disponible(
-        mapa: MapaTablero.mapa4,
-        descripcion: 'Disponible',
-      ),
+      _MapaDisponible.disponible(mapa: MapaTablero.mapa1, descripcion: ''),
+      _MapaDisponible.disponible(mapa: MapaTablero.mapa2, descripcion: ''),
+      _MapaDisponible.disponible(mapa: MapaTablero.mapa3, descripcion: ''),
+      _MapaDisponible.disponible(mapa: MapaTablero.mapa4, descripcion: ''),
     ];
 
     return Scaffold(

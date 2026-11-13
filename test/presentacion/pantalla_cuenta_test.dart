@@ -19,7 +19,6 @@ class FakeAuthGateway implements AuthGateway {
   @override
   Future<AuthUser> register({
     required String name,
-    required String email,
     required String password,
   }) async {
     final error = registrationError;
@@ -30,7 +29,7 @@ class FakeAuthGateway implements AuthGateway {
 
   @override
   Future<AuthUser> signIn({
-    required String email,
+    required String name,
     required String password,
   }) async {
     loginCalled = true;
@@ -56,6 +55,27 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
+  testWidgets('rechaza contraseñas nuevas cortas o no numéricas', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Jugador');
+    for (final password in ['12345', '12345a']) {
+      await tester.enterText(
+        find.byKey(const Key('account-password')),
+        password,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Usa entre 6 y 128 dígitos.'), findsOneWidget);
+      expect(gateway.user, isNull);
+    }
+  });
+
   testWidgets('registers, signs out, and signs back in', (tester) async {
     final gateway = FakeAuthGateway();
     await tester.pumpWidget(
@@ -64,34 +84,21 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'a-strong-password',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
     expect(find.text('Sesión iniciada'), findsOneWidget);
     expect(find.text('Player One'), findsOneWidget);
-    expect(find.text('player@example.com'), findsOneWidget);
+    expect(find.text('player@example.com'), findsNothing);
 
     await tester.tap(find.text('Cerrar sesión'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('¿Ya tienes cuenta? Inicia sesión'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'a-strong-password',
-    );
+    await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
     await tester.pumpAndSettle();
 
@@ -111,14 +118,7 @@ void main() {
       find.byKey(const Key('account-name')),
       "Alex'; DROP TABLE user;--",
     );
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'a-strong-password',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
@@ -129,23 +129,14 @@ void main() {
     expect(gateway.user, isNull);
   });
 
-  testWidgets('allows accented names and special characters in passwords', (
-    tester,
-  ) async {
+  testWidgets('allows accented names and numeric passwords', (tester) async {
     final gateway = FakeAuthGateway();
     await tester.pumpWidget(
       MaterialApp(home: PantallaCuenta(authGateway: gateway)),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('account-name')), "O'Connor");
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player+test@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'p@ss+word-123',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
@@ -188,14 +179,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'a-strong-password',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
 
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();

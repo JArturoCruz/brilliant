@@ -10,6 +10,7 @@ import 'package:brilliant/dominio/casilla.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/posicion.dart';
 import 'package:brilliant/presentacion/widgets/historial_partida_widget.dart';
+import 'package:brilliant/presentacion/widgets/instrucciones_juego_widget.dart';
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +19,7 @@ import '../bloc/zona_inicial_cubit.dart';
 import '../dominio/tablero.dart';
 import '../dominio/zona_inicial.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
+import 'seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
 import 'widgets/boton_audio.dart';
@@ -55,6 +57,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   BuildContext? _gameContext;
   JuegoState? _lastObservedGameState;
   RoomSnapshot? _room;
+  final ValueNotifier<RoomSnapshot?> _roomNotifier = ValueNotifier(null);
   String? _remoteError;
   bool _isPolling = false;
   bool _isBusy = false;
@@ -64,7 +67,13 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _waitingForConnection = false;
   bool _resultsDialogShown = false;
   bool _victorySoundPlayed = false;
+  final Set<String> _seenRoomEvents = {};
+  final Map<int, List<RoomEvent>> _pendingCompletions = {};
+  bool _roomEventsInitialized = false;
+  String? _completionNotice;
+  Timer? _noticeTimer;
   int? _lastSynchronizedRevision;
+  int? _lastSynchronizedRound;
   Future<RoomSnapshot> Function()? _pendingMoveRetry;
 
   bool get _isMultiplayer =>
@@ -92,6 +101,8 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _noticeTimer?.cancel();
+    _roomNotifier.dispose();
     unawaited(AudioJuego.instancia.detenerMusica());
     super.dispose();
   }
@@ -133,7 +144,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
           entrada.value -
           (anterior.contadorCompletadasPorRegion[entrada.key] ?? 0),
     );
-    for (var zona = 0; zona < zonasCompletadas; zona++) {
+    for (var zona = 0; !_isMultiplayer && zona < zonasCompletadas; zona++) {
       unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
     }
 
@@ -165,7 +176,9 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         );
         return;
       }
+      _handleRoomEvents(room);
       _synchronizeRoom(room);
+      _roomNotifier.value = room;
       setState(() {
         _room = room;
         _remoteError = null;
@@ -200,6 +213,21 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     );
     if (_lastSynchronizedRevision == room.revision) return;
     _lastSynchronizedRevision = room.revision;
+    final previous = context.read<JuegoBloc>().state;
+    final preserveSelection =
+        _lastSynchronizedRound == room.round &&
+        room.phase == 'playing' &&
+        !currentPlayer.playedThisRound &&
+        previous.fase != FaseTurno.inicio &&
+        previous.fase != FaseTurno.turnoTerminado &&
+        List.generate(7, (row) => row).every(
+          (row) => List.generate(7, (column) => column).every(
+            (column) =>
+                previous.tablero[row][column].valorActual ==
+                room.board[row][column],
+          ),
+        );
+    _lastSynchronizedRound = room.round;
 
     final initialValues = <Posicion, int>{};
     for (final position in ZonaInicial.posicionesParaMapa(widget.mapa)) {
@@ -229,21 +257,36 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     context.read<JuegoBloc>().add(
       SincronizarJuegoMultijugador(
         JuegoState(
-          tablero: [
-            for (var row = 0; row < TableroJuego.filas; row++)
-              [
-                for (var column = 0; column < TableroJuego.columnas; column++)
-                  Casilla(
-                    fila: row,
-                    columna: column,
-                    valorActual: room.board[row][column],
-                  ),
-              ],
-          ],
-          fase: phase,
+          tablero: preserveSelection
+              ? previous.tablero
+              : [
+                  for (var row = 0; row < TableroJuego.filas; row++)
+                    [
+                      for (
+                        var column = 0;
+                        column < TableroJuego.columnas;
+                        column++
+                      )
+                        Casilla(
+                          fila: row,
+                          columna: column,
+                          valorActual: room.board[row][column],
+                        ),
+                    ],
+                ],
+          fase: preserveSelection ? previous.fase : phase,
           dado1: room.dice == null ? null : room.dice![0],
           dado2: room.dice == null ? null : room.dice![1],
-          turnoSaltadoAutomaticamente: false,
+          numeroAncla: preserveSelection ? previous.numeroAncla : null,
+          numeroColocar: preserveSelection ? previous.numeroColocar : null,
+          indiceDadoAncla: preserveSelection ? previous.indiceDadoAncla : null,
+          filaAncla: preserveSelection ? previous.filaAncla : null,
+          columnaAncla: preserveSelection ? previous.columnaAncla : null,
+          filaProvisional: preserveSelection ? previous.filaProvisional : null,
+          columnaProvisional: preserveSelection
+              ? previous.columnaProvisional
+              : null,
+          turnoSaltadoAutomaticamente: currentPlayer.noLegalMove,
           puntuacionTotal: currentPlayer.score,
           contadorCompletadasPorRegion: room.regionCounters,
           regionesCompletadas: room.regionCounters.entries
@@ -335,7 +378,9 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     try {
       final room = await action();
       if (!mounted) return;
+      _handleRoomEvents(room);
       _synchronizeRoom(room);
+      _roomNotifier.value = room;
       setState(() {
         _room = room;
         _remoteError = null;
@@ -361,6 +406,55 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       }
     } finally {
       if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  void _handleRoomEvents(RoomSnapshot room) {
+    final incoming = room.events
+        .where((event) => _seenRoomEvents.add(event.id))
+        .toList();
+    if (!_roomEventsInitialized) {
+      _roomEventsInitialized = true;
+      for (final event in incoming) {
+        if (event.playerId == _multiplayerUser.id &&
+            event.region != null &&
+            event.round == room.round) {
+          _pendingCompletions.putIfAbsent(event.round!, () => []).add(event);
+        }
+      }
+      return;
+    }
+    for (final event in incoming) {
+      if (event.playerId == null || event.region == null || event.round == null)
+        continue;
+      _pendingCompletions.putIfAbsent(event.round!, () => []).add(event);
+      if (event.playerId == _multiplayerUser.id) {
+        unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
+      } else {
+        _noticeTimer?.cancel();
+        _completionNotice = event.message;
+        _noticeTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) setState(() => _completionNotice = null);
+        });
+      }
+    }
+    final settled = _pendingCompletions.keys
+        .where((round) => round < room.round || room.phase == 'finished')
+        .toList();
+    for (final round in settled) {
+      final events = _pendingCompletions.remove(round)!;
+      final ownRegions = events
+          .where((event) => event.playerId == _multiplayerUser.id)
+          .map((event) => event.region)
+          .toSet();
+      final rivalOnly = events.any(
+        (event) =>
+            event.playerId != _multiplayerUser.id &&
+            !ownRegions.contains(event.region),
+      );
+      if (rivalOnly) {
+        unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaRival));
+      }
     }
   }
 
@@ -511,6 +605,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
           barrierDismissible: false,
           builder: (dialogContext) => _PartidaFinalizadaDialog(
             room: room,
+            mapa: widget.mapa,
             onReturnToLobby: () {
               Navigator.of(dialogContext).pop();
               _leaveMultiplayerGame(returnToLobby: true);
@@ -567,6 +662,45 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         ),
         actions: [
           const BotonAudio(),
+          if (_isMultiplayer)
+            IconButton(
+              key: const Key('show-player-boards'),
+              tooltip: 'Ver tableros de jugadores',
+              onPressed: _room == null
+                  ? null
+                  : () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Tableros de jugadores'),
+                          content: SizedBox(
+                            width: 360,
+                            child: ValueListenableBuilder<RoomSnapshot?>(
+                              valueListenable: _roomNotifier,
+                              builder: (context, room, _) =>
+                                  SingleChildScrollView(
+                                    child: room == null
+                                        ? const Text('Esperando tableros…')
+                                        : _TablerosJugadores(
+                                            room: room,
+                                            mapa: widget.mapa,
+                                            excludePlayerId:
+                                                _multiplayerUser.id,
+                                          ),
+                                  ),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cerrar'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.grid_view_rounded),
+            ),
           if (_isMultiplayer)
             IconButton(
               key: const Key('leave-multiplayer-game'),
@@ -632,153 +766,175 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 800) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_connectionLost) _connectionNotice(compact: true),
-                  Expanded(
-                    child: constraints.maxWidth > constraints.maxHeight
-                        ? Row(
-                            children: [
-                              Expanded(
-                                flex: 5,
-                                child: _TableroMovil(mapa: widget.mapa),
-                              ),
-                              Expanded(
-                                flex: 4,
-                                child: _PanelPartida(
-                                  tablero: tablero,
-                                  compacto: true,
-                                  mobile: true,
-                                  mapa: widget.mapa,
-                                  multiplayer: _isMultiplayer,
-                                  room: _room,
-                                  currentUserId: widget.multiplayerUser?.id,
-                                  isBusy: _isBusy || _pendingMoveRetry != null,
-                                  onStart: _submitInitialBoard,
-                                  onConfirmMove: _submitMove,
-                                  onSkipTurn: _skipTurn,
-                                  errorMessage: _remoteError,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            children: [
-                              Expanded(
-                                flex: 5,
-                                child: _TableroMovil(mapa: widget.mapa),
-                              ),
-                              Expanded(
-                                flex: 7,
-                                child: _PanelPartida(
-                                  tablero: tablero,
-                                  compacto: true,
-                                  mobile: true,
-                                  mapa: widget.mapa,
-                                  multiplayer: _isMultiplayer,
-                                  room: _room,
-                                  currentUserId: widget.multiplayerUser?.id,
-                                  isBusy: _isBusy || _pendingMoveRetry != null,
-                                  onStart: _submitInitialBoard,
-                                  onConfirmMove: _submitMove,
-                                  onSkipTurn: _skipTurn,
-                                  errorMessage: _remoteError,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ],
-              );
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_connectionLost) _connectionNotice(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          children: [
+            if (_completionNotice != null)
+              Container(
+                key: const Key('rival-zone-notice'),
+                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE6B4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: TemaMesa.dorado),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.emoji_events_outlined,
+                      color: TemaMesa.nogal,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _completionNotice!,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Cerrar aviso',
+                      onPressed: () => setState(() => _completionNotice = null),
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 960 ||
+                      constraints.maxHeight < 640) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_connectionLost) _connectionNotice(compact: true),
                         Expanded(
-                          flex: 3,
-                          child: Center(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const InstruccionZonaInicial(),
-                                  const SizedBox(height: 16),
-                                  _TableroConPuntuaciones(
-                                    mapa: widget.mapa,
-                                    altoDisponible:
-                                        constraints.maxHeight -
-                                        (_connectionLost ? 100 : 0),
-                                  ),
-                                ],
+                          child: SingleChildScrollView(
+                            key: const Key('mobile-game-content'),
+                            padding: const EdgeInsets.all(8),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 520,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const InstruccionZonaInicial(),
+                                    TableroWidget(mapa: widget.mapa),
+                                    const Text(
+                                      'Las casillas con la misma etiqueta forman una sola zona.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 11),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    PuntuacionesDisponiblesWidget(
+                                      mapa: widget.mapa,
+                                      horizontal: true,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text('Registro de partida'),
+                                    const HistorialPartidaWidget(
+                                      height: 180,
+                                      showEmptyMessage: true,
+                                    ),
+                                    const InstruccionesJuegoWidget(),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: _PanelPartida(
-                            tablero: tablero,
-                            multiplayer: _isMultiplayer,
-                            room: _room,
-                            currentUserId: widget.multiplayerUser?.id,
-                            isBusy: _isBusy || _pendingMoveRetry != null,
-                            onStart: _submitInitialBoard,
-                            onConfirmMove: _submitMove,
-                            onSkipTurn: _skipTurn,
-                            errorMessage: _remoteError,
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: constraints.maxHeight * 0.45,
+                          ),
+                          child: SingleChildScrollView(
+                            child: _PanelPartida(
+                              tablero: tablero,
+                              compacto: true,
+                              mobile: true,
+                              mapa: widget.mapa,
+                              multiplayer: _isMultiplayer,
+                              room: _room,
+                              currentUserId: widget.multiplayerUser?.id,
+                              isBusy: _isBusy || _pendingMoveRetry != null,
+                              onStart: _submitInitialBoard,
+                              onConfirmMove: _submitMove,
+                              onSkipTurn: _skipTurn,
+                              errorMessage: _remoteError,
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
+                    );
+                  }
 
-class _TableroMovil extends StatelessWidget {
-  const _TableroMovil({required this.mapa});
-
-  final MapaTablero mapa;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-      child: Column(
-        children: [
-          const InstruccionZonaInicial(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final dimension = constraints.biggest.shortestSide;
-                return Center(
-                  child: SizedBox.square(
-                    dimension: dimension,
-                    child: TableroWidget(mapa: mapa),
-                  ),
-                );
-              },
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_connectionLost) _connectionNotice(),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Center(
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const InstruccionZonaInicial(),
+                                        const SizedBox(height: 16),
+                                        _TableroConPuntuaciones(
+                                          mapa: widget.mapa,
+                                          altoDisponible:
+                                              constraints.maxHeight -
+                                              (_connectionLost ? 100 : 0),
+                                        ),
+                                        const Text(
+                                          'Las casillas con la misma etiqueta forman una sola zona.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                child: _PanelPartida(
+                                  tablero: tablero,
+                                  multiplayer: _isMultiplayer,
+                                  room: _room,
+                                  currentUserId: widget.multiplayerUser?.id,
+                                  isBusy: _isBusy || _pendingMoveRetry != null,
+                                  onStart: _submitInitialBoard,
+                                  onConfirmMove: _submitMove,
+                                  onSkipTurn: _skipTurn,
+                                  errorMessage: _remoteError,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -865,88 +1021,6 @@ class _PanelPartida extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (mobile)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    multiplayer && room != null
-                        ? 'Sala ${room!.code}'
-                        : 'Partida',
-                    style: const TextStyle(
-                      color: TemaMesa.nogal,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('show-game-history'),
-                  tooltip: 'Ver seguimiento de la partida',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final gameBloc = context.read<JuegoBloc>();
-                    showDialog<void>(
-                      context: context,
-                      builder: (context) => BlocProvider.value(
-                        value: gameBloc,
-                        child: AlertDialog(
-                          title: const Text('Registro de Partida'),
-                          content: SizedBox(
-                            width: 360,
-                            height: 260,
-                            child: const HistorialPartidaWidget(
-                              height: 260,
-                              showEmptyMessage: true,
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cerrar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.history),
-                ),
-                IconButton(
-                  key: const Key('show-game-scores'),
-                  tooltip: 'Ver puntuaciones disponibles',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final gameBloc = context.read<JuegoBloc>();
-                    showDialog<void>(
-                      context: context,
-                      builder: (context) => BlocProvider.value(
-                        value: gameBloc,
-                        child: AlertDialog(
-                          title: const Text('Puntuaciones disponibles'),
-                          content: SingleChildScrollView(
-                            child: SizedBox(
-                              width: 360,
-                              child: PuntuacionesDisponiblesWidget(
-                                mapa: mapa,
-                                horizontal: true,
-                              ),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cerrar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.leaderboard_outlined),
-                ),
-              ],
-            ),
           if (multiplayer && room != null) ...[
             if (!mobile) ...[
               Text(
@@ -1075,10 +1149,12 @@ class _PanelPartida extends StatelessWidget {
 class _PartidaFinalizadaDialog extends StatelessWidget {
   const _PartidaFinalizadaDialog({
     required this.room,
+    required this.mapa,
     required this.onReturnToLobby,
   });
 
   final RoomSnapshot room;
+  final MapaTablero mapa;
   final VoidCallback onReturnToLobby;
 
   @override
@@ -1160,6 +1236,12 @@ class _PartidaFinalizadaDialog extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(height: 16),
+              Text(
+                'Tableros finales',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              _TablerosJugadores(room: room, mapa: mapa),
             ],
           ),
         ),
@@ -1185,4 +1267,48 @@ class _PartidaFinalizadaDialog extends StatelessWidget {
     'no_moves' => 'No hubo más jugadas válidas; ganó la puntuación más alta.',
     _ => 'Gracias por jugar.',
   };
+}
+
+class _TablerosJugadores extends StatelessWidget {
+  const _TablerosJugadores({
+    required this.room,
+    required this.mapa,
+    this.excludePlayerId,
+  });
+
+  final RoomSnapshot room;
+  final MapaTablero mapa;
+  final String? excludePlayerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final players = room.players.where(
+      (player) => player.id != excludePlayerId,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final player in players)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Text(
+                  player.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                if (player.board == null)
+                  const Text('El tablero aún no está disponible.')
+                else
+                  SizedBox(
+                    width: 240,
+                    child: VistaPreviaMapa(mapa: mapa, valores: player.board),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }

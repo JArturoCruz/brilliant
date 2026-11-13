@@ -57,14 +57,16 @@ class TarjetaMapa extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      descripcion,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: color),
-                    ),
+                    if (descripcion.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        descripcion,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: color),
+                      ),
+                    ],
                   ],
                 ),
               ),

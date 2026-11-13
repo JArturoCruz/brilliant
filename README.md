@@ -25,6 +25,9 @@ En la pantalla inicial escribe la IP o URL del servidor y pulsa **Conectar**.
 Después crea una cuenta o inicia sesión para acceder al juego y al
 multijugador. Se verifica el servidor antes de habilitar la cuenta. La
 dirección se recuerda y cambiar de servidor cierra la sesión local.
+El registro solo solicita un nombre de usuario único y una contraseña
+numérica de al menos seis dígitos. Las cuentas anteriores conservan su
+contraseña y pueden iniciar sesión con su nombre de usuario.
 
 - En el equipo servidor, usa `localhost:3000`.
 - En otro equipo o teléfono de la misma red, usa la IPv4 del servidor y el
@@ -119,10 +122,16 @@ instance.
 Each player configures and plays on a separate board using the original game
 interface and map rules. Everyone plays each round with the same pair of dice
 at the same time; the next pair is rolled only after all players complete or
-skip that round. The server validates every move and keeps each board private
-to its player. Players who complete the same region during one round share
+skip that round. The server validates every move and shares the current boards
+with the authenticated members of the room; players can inspect opponents'
+boards during the game and everyone's final board in the results. Players who
+complete the same region during one round share
 that round's reward; the next reward remains for the next round in which
 someone completes it. Claimed rewards remain unavailable if a player concedes.
+The same-region tie avoids a rival-completion sound; completing different
+regions can produce both the player's celebration and the rival sound.
+When no player can use either die, the game waits briefly and rolls the next
+round if some future roll can still be played.
 
 ## Authentication and privacy
 
@@ -131,6 +140,9 @@ someone completes it. Claimed rewards remain unavailable if a player concedes.
   the local token when the server cannot be reached.
 - Usernames are trimmed and compared case-insensitively with Unicode
   normalization. The server enforces uniqueness in SQLite.
+- Six-digit numeric passwords provide limited protection against guessing.
+  Use a longer numeric password for better security. No email-based password
+  recovery is available.
 - Sign-in is limited to 8 attempts per 15 minutes and registration to 5 attempts
   per hour, per client address resolved by Better Auth. If deployed behind a
   reverse proxy, configure trusted proxy addresses before relying on IP-based

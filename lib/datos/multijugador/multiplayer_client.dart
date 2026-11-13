@@ -91,6 +91,8 @@ class RoomPlayer {
     required this.isWinner,
     required this.ready,
     required this.playedThisRound,
+    this.noLegalMove = false,
+    this.board,
   });
 
   final String id;
@@ -102,6 +104,8 @@ class RoomPlayer {
   final bool isWinner;
   final bool ready;
   final bool playedThisRound;
+  final bool noLegalMove;
+  final List<List<int?>>? board;
 
   factory RoomPlayer.fromJson(Map<String, dynamic> json) => RoomPlayer(
     id: _string(json['id']),
@@ -113,17 +117,33 @@ class RoomPlayer {
     isWinner: json['isWinner'] == true,
     ready: json['ready'] == true,
     playedThisRound: json['playedThisRound'] == true,
+    noLegalMove: json['noLegalMove'] == true,
+    board: json['board'] == null ? null : _board(json['board']),
   );
 }
 
 class RoomEvent {
-  const RoomEvent({required this.id, required this.message});
+  const RoomEvent({
+    required this.id,
+    required this.message,
+    this.playerId,
+    this.region,
+    this.round,
+  });
 
   final String id;
   final String message;
+  final String? playerId;
+  final String? region;
+  final int? round;
 
-  factory RoomEvent.fromJson(Map<String, dynamic> json) =>
-      RoomEvent(id: _string(json['id']), message: _string(json['message']));
+  factory RoomEvent.fromJson(Map<String, dynamic> json) => RoomEvent(
+    id: _string(json['id']),
+    message: _string(json['message']),
+    playerId: json['playerId'] == null ? null : _string(json['playerId']),
+    region: json['region'] == null ? null : _string(json['region']),
+    round: json['round'] == null ? null : _integer(json['round']),
+  );
 }
 
 class RoomSnapshot {
@@ -167,14 +187,7 @@ class RoomSnapshot {
     players: _list(json['players'])
         .map((value) => RoomPlayer.fromJson(_object(value)))
         .toList(growable: false),
-    board: _list(json['board'])
-        .map(
-          (row) =>
-              _list(row)
-                  .map((value) => value == null ? null : _integer(value))
-                  .toList(growable: false),
-        )
-        .toList(growable: false),
+    board: _board(json['board']),
     dice: json['dice'] == null
         ? null
         : _list(json['dice']).map(_integer).toList(growable: false),
@@ -356,6 +369,37 @@ class MultiplayerClient {
   }
 
   String newCommandId() => _newCommandId();
+}
+
+List<List<int?>> _board(Object? value) {
+  final rows = _list(value);
+  if (rows.length != 7) {
+    throw const MultiplayerApiException(
+      'El servidor devolvió un tablero no válido.',
+    );
+  }
+  return rows
+      .map((row) {
+        final cells = _list(row);
+        if (cells.length != 7) {
+          throw const MultiplayerApiException(
+            'El servidor devolvió un tablero no válido.',
+          );
+        }
+        return cells
+            .map((cell) {
+              if (cell == null) return null;
+              final number = _integer(cell);
+              if (number < 1 || number > 6) {
+                throw const MultiplayerApiException(
+                  'El servidor devolvió un tablero no válido.',
+                );
+              }
+              return number;
+            })
+            .toList(growable: false);
+      })
+      .toList(growable: false);
 }
 
 Map<String, dynamic> _object(Object? value) {

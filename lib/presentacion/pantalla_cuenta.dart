@@ -25,7 +25,6 @@ class PantallaCuenta extends StatefulWidget {
 class _PantallaCuentaState extends State<PantallaCuenta> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   AuthUser? _user;
@@ -41,7 +40,6 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -65,11 +63,10 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
       final user = _isRegistering
           ? await widget.authGateway.register(
               name: _nameController.text.trim(),
-              email: _emailController.text.trim(),
               password: _passwordController.text,
             )
           : await widget.authGateway.signIn(
-              email: _emailController.text.trim(),
+              name: _nameController.text.trim(),
               password: _passwordController.text,
             );
       if (mounted) {
@@ -218,50 +215,29 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          if (_isRegistering) ...[
-            TextFormField(
-              key: const Key('account-name'),
-              controller: _nameController,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.name],
-              decoration: const InputDecoration(
-                labelText: 'Nombre de usuario',
-                helperText:
-                    'Usa letras, números, espacios, guiones o apóstrofes.',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                final name = value?.trim() ?? '';
-                final characterCount = name.runes.length;
-                if (_isRegistering && characterCount < 2) {
-                  return 'Ingresa un nombre de usuario de al menos 2 caracteres.';
-                }
-                if (_isRegistering && characterCount > 32) {
-                  return 'El nombre de usuario no puede superar 32 caracteres.';
-                }
-                if (_isRegistering && !_usernamePattern.hasMatch(name)) {
-                  return 'Usa solo letras, números, espacios, guiones o apóstrofes.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
           TextFormField(
-            key: const Key('account-email'),
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
+            key: const Key('account-name'),
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.email],
+            autofillHints: const [AutofillHints.name],
             decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
+              labelText: 'Nombre de usuario',
+              helperText:
+                  'Usa letras, números, espacios, guiones o apóstrofes.',
               border: OutlineInputBorder(),
             ),
             validator: (value) {
-              final email = value?.trim() ?? '';
-              if (!email.contains('@') || !email.contains('.')) {
-                return 'Ingresa un correo electrónico válido.';
+              final name = value?.trim() ?? '';
+              final characterCount = name.runes.length;
+              if (characterCount < 2) {
+                return 'Ingresa un nombre de usuario de al menos 2 caracteres.';
+              }
+              if (characterCount > 32) {
+                return 'El nombre de usuario no puede superar 32 caracteres.';
+              }
+              if (!_usernamePattern.hasMatch(name)) {
+                return 'Usa solo letras, números, espacios, guiones o apóstrofes.';
               }
               return null;
             },
@@ -282,8 +258,9 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
             ),
             validator: (value) {
               final password = value ?? '';
-              if (_isRegistering && password.length < 12) {
-                return 'Usa al menos 12 caracteres.';
+              if (_isRegistering &&
+                  !RegExp(r'^[0-9]{6,128}$').hasMatch(password)) {
+                return 'Usa entre 6 y 128 dígitos.';
               }
               if (password.isEmpty) return 'Ingresa tu contraseña.';
               return null;
@@ -328,8 +305,6 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: 8),
-        Text(_user!.email, textAlign: TextAlign.center),
         const SizedBox(height: 24),
         FilledButton.tonal(
           onPressed: _isLoading ? null : _signOut,

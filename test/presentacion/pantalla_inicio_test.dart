@@ -41,7 +41,6 @@ class FakeAuthGateway implements AuthGateway {
   @override
   Future<AuthUser> register({
     required String name,
-    required String email,
     required String password,
   }) async {
     user = account;
@@ -50,7 +49,7 @@ class FakeAuthGateway implements AuthGateway {
 
   @override
   Future<AuthUser> signIn({
-    required String email,
+    required String name,
     required String password,
   }) async {
     user = account;
@@ -279,14 +278,7 @@ void main() {
     await tester.tap(find.text('Crear cuenta o iniciar sesión'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(
-      find.byKey(const Key('account-email')),
-      'player@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'a-strong-password',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 

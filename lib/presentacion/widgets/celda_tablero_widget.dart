@@ -7,7 +7,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/mapa_tablero.dart';
 import '../../dominio/posicion.dart';
-import '../../dominio/region.dart';
 import '../../dominio/topologia_tablero.dart';
 import '../tema_mesa.dart';
 
@@ -39,11 +38,8 @@ class CeldaTableroWidget extends StatelessWidget {
     final color = regionColor == null
         ? TemaMesa.papel
         : Color.lerp(regionColor, TemaMesa.papel, 0.16)!;
-    final colorTexto = region == RegionTablero.blanca
-        ? TemaMesa.tinta
-        : color.computeLuminance() > 0.24
-        ? TemaMesa.tinta
-        : TemaMesa.papelClaro;
+    const colorTexto = Colors.white;
+    final fragmentada = region != null && mapa.regionEstaFragmentada(region);
 
     final esInicial = state.valores.containsKey(posicion);
     final seleccionada = state.seleccionada == posicion;
@@ -186,19 +182,47 @@ class CeldaTableroWidget extends StatelessWidget {
                   border: bordeActual,
                   boxShadow: sombraActual,
                 ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(scale: animation, child: child),
-                    );
-                  },
-                  child:
-                      contenido ??
-                      const SizedBox.shrink(key: ValueKey('sin-numero')),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (fragmentada)
+                      Positioned(
+                        top: 1,
+                        left: 1,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            mapa.etiquetaRegion(region),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child:
+                          contenido ??
+                          const SizedBox.shrink(key: ValueKey('sin-numero')),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -229,7 +253,18 @@ class _TextoCasilla extends StatelessWidget {
       color: color,
       fontSize: 30,
       fontWeight: FontWeight.bold,
-      shadows: const [Shadow(color: Colors.black38, blurRadius: 3)],
+      shadows: [
+        for (final offset in const [
+          Offset(-0.7, 0),
+          Offset(0.7, 0),
+          Offset(0, -0.7),
+          Offset(0, 0.7),
+        ])
+          Shadow(
+            color: Colors.black87.withAlpha((color.a * 255).round()),
+            offset: offset,
+          ),
+      ],
     ),
   );
 }

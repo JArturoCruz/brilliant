@@ -45,6 +45,16 @@ class PanelDados extends StatelessWidget {
         if (state.dado1 == null || state.dado2 == null) {
           return const SizedBox.shrink();
         }
+        final comprobandoDados =
+            state.fase != FaseTurno.turnoTerminado ||
+            state.turnoSaltadoAutomaticamente;
+        final bloc = context.read<JuegoBloc>();
+        final dado1Valido =
+            !comprobandoDados ||
+            bloc.puedeUsarComoAncla(state.dado1!, state.dado2!);
+        final dado2Valido =
+            !comprobandoDados ||
+            bloc.puedeUsarComoAncla(state.dado2!, state.dado1!);
 
         String mensaje = '';
         if (state.fase == FaseTurno.seleccionandoAncla) {
@@ -92,6 +102,15 @@ class PanelDados extends StatelessWidget {
               ),
               SizedBox(height: compact ? 6 : 12),
             ],
+            if (comprobandoDados && dado1Valido != dado2Valido)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'El dado ${dado1Valido ? state.dado2 : state.dado1} no puede usarse como ancla en esta ronda.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -102,7 +121,8 @@ class PanelDados extends StatelessWidget {
                   esAncla: state.indiceDadoAncla == 1,
                   esColocar: state.indiceDadoAncla == 2,
                   compacto: compact,
-                  onTap: permitirCambioDado && isEnabled
+                  invalido: !dado1Valido,
+                  onTap: permitirCambioDado && isEnabled && dado1Valido
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
                             numeroElegido: state.dado1!,
@@ -120,7 +140,8 @@ class PanelDados extends StatelessWidget {
                   esAncla: state.indiceDadoAncla == 2,
                   esColocar: state.indiceDadoAncla == 1,
                   compacto: compact,
-                  onTap: permitirCambioDado && isEnabled
+                  invalido: !dado2Valido,
+                  onTap: permitirCambioDado && isEnabled && dado2Valido
                       ? () => context.read<JuegoBloc>().add(
                           SeleccionarNumeroAncla(
                             numeroElegido: state.dado2!,
@@ -220,6 +241,7 @@ class _BotonDado extends StatefulWidget {
     this.esColocar = false,
     this.onTap,
     this.compacto = false,
+    this.invalido = false,
   });
 
   final int valor;
@@ -228,6 +250,7 @@ class _BotonDado extends StatefulWidget {
   final int rollId;
   final VoidCallback? onTap;
   final bool compacto;
+  final bool invalido;
 
   @override
   State<_BotonDado> createState() => _BotonDadoState();
@@ -289,7 +312,9 @@ class _BotonDadoState extends State<_BotonDado>
     Color colorBorde = TemaMesa.nogal;
     Color colorTexto = TemaMesa.nogalOscuro;
 
-    if (widget.esAncla) {
+    if (widget.invalido) {
+      colorBorde = Colors.red.shade700;
+    } else if (widget.esAncla) {
       colorFondo = Colors.yellow.shade100;
       colorBorde = TemaMesa.dorado;
       colorTexto = TemaMesa.nogalOscuro;
@@ -313,7 +338,9 @@ class _BotonDadoState extends State<_BotonDado>
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: colorBorde,
-              width: (widget.esAncla || widget.esColocar) ? 4 : 2,
+              width: (widget.invalido || widget.esAncla || widget.esColocar)
+                  ? 4
+                  : 2,
             ),
             boxShadow: [
               if (widget.esAncla || widget.esColocar)

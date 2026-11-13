@@ -4,6 +4,7 @@ import 'package:brilliant/datos/autenticacion/auth_client.dart';
 import 'package:brilliant/datos/multijugador/multiplayer_client.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/bloc/juego_bloc.dart';
+import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/zona_inicial.dart';
@@ -49,6 +50,8 @@ void main() {
     List<int> scores = const [],
     List<String> winners = const [],
     String? finishReason,
+    Map<String, List<List<int?>>> playerBoards = const {},
+    List<Map<String, dynamic>>? events,
   }) => {
     'code': 'ABC234',
     'mapId': 1,
@@ -66,6 +69,7 @@ void main() {
         'isWinner': winners.contains(id),
         'ready': ready,
         'playedThisRound': id == playedPlayerId,
+        'board': playerBoards[id],
       };
     }),
     'board': board ?? List.generate(7, (_) => List<int?>.filled(7, null)),
@@ -75,13 +79,15 @@ void main() {
     'revision': revision,
     'winners': winners,
     'finishReason': finishReason,
-    'events': [
-      {
-        'id': 'event-1',
-        'message': 'Jugador Uno creó la sala.',
-        'createdAt': '2026-01-01T00:00:00.000Z',
-      },
-    ],
+    'events':
+        events ??
+        [
+          {
+            'id': 'event-1',
+            'message': 'Jugador Uno creó la sala.',
+            'createdAt': '2026-01-01T00:00:00.000Z',
+          },
+        ],
     'regionCounters': regionCounters ?? <String, int>{},
   };
 
@@ -422,159 +428,166 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-    'supports setup, moves, and reconnect on a phone-sized screen',
-    (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      var latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
-      var moveAttempts = 0;
-      String? firstMoveCommandId;
-      final client = clientWith((request) async {
-        if (request.url.path.endsWith('/lobby')) {
-          return http.Response(jsonEncode(lobbyJson()), 200);
-        }
-        if (request.method == 'POST' && request.url.path.endsWith('/rooms')) {
-          return http.Response(jsonEncode(roomJson(players: 2)), 201);
-        }
-        if (request.url.path.endsWith('/start')) {
-          latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
-          return http.Response(jsonEncode(latestRoom), 200);
-        }
-        if (request.url.path.endsWith('/ABC234')) {
-          return http.Response(jsonEncode(latestRoom), 200);
-        }
-        if (request.url.path.endsWith('/setup')) {
-          expect(jsonDecode(request.body), {
-            'values': [1, 2, 3, 4, 5, 6],
-          });
-          final board = List.generate(7, (_) => List<int?>.filled(7, null));
-          for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
-            final position = ZonaInicial.posiciones[index];
-            board[position.fila][position.columna] = index + 1;
-          }
-          latestRoom = roomJson(
-            players: 2,
-            phase: 'playing',
-            revision: 3,
-            board: board,
-            dice: [2, 3],
-            ready: true,
-          );
-          return http.Response(jsonEncode(latestRoom), 200);
-        }
-        if (request.url.path.endsWith('/move')) {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          moveAttempts++;
-          if (moveAttempts == 1) {
-            firstMoveCommandId = body['commandId'] as String;
-            throw http.ClientException('offline');
-          }
-          expect(body['commandId'], firstMoveCommandId);
-          expect(body['round'], 1);
-          expect(body['anchorDieIndex'], 0);
-          expect(body['anchor'], {'row': 3, 'column': 1});
-          expect(body['destination'], {'row': 2, 'column': 1});
-          final board = List.generate(7, (_) => List<int?>.filled(7, null));
-          for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
-            final position = ZonaInicial.posiciones[index];
-            board[position.fila][position.columna] = index + 1;
-          }
-          board[2][1] = 3;
-          latestRoom = roomJson(
-            players: 2,
-            phase: 'playing',
-            revision: 4,
-            round: 1,
-            board: board,
-            dice: [2, 3],
-            playedPlayerId: user.id,
-            regionCounters: {'azul1': 1},
-            ready: true,
-          );
-          return http.Response(jsonEncode(latestRoom), 200);
-        }
-        return http.Response('{}', 404);
-      });
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PantallaMultijugador(user: user, client: client),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('create-multiplayer-room')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('start-multiplayer-game')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Brilliant · ABC234'), findsOneWidget);
-      expect(find.byType(TableroWidget), findsOneWidget);
-      expect(find.byType(SelectorNumerosZonaInicial), findsOneWidget);
-      expect(find.byKey(const Key('show-game-history')), findsOneWidget);
-      final gameContext = tester.element(find.byType(TableroWidget));
-      final cubit = gameContext.read<ZonaInicialCubit>();
-      final gameBloc = gameContext.read<JuegoBloc>();
-      for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
-        cubit.asignarASeleccionada(index + 1);
+  testWidgets('supports setup, moves, and reconnect on a phone-sized screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
+    var moveAttempts = 0;
+    String? firstMoveCommandId;
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
       }
-      await tester.pumpAndSettle();
-      expect(cubit.state.esValida, isTrue);
-      expect(cubit.state.iniciada, isFalse);
-      expect(find.text('Inicio'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Inicio'))
-            .onPressed,
-        isNotNull,
-      );
-      await tester.ensureVisible(find.text('Inicio'));
-      await tester.tap(find.text('Inicio'));
-      await tester.pumpAndSettle();
-      expect(find.text('Ronda 1: dados compartidos por todos'), findsOneWidget);
-      expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('dado-1')));
-      await tester.pump();
-      final anchorCell = find.byKey(const Key('game-cell-3-1'));
-      await tester.ensureVisible(anchorCell);
-      await tester.tap(anchorCell);
-      await tester.pump();
-      final destinationCell = find.byKey(const Key('game-cell-2-1'));
-      await tester.ensureVisible(destinationCell);
-      await tester.tap(destinationCell);
-      await tester.pumpAndSettle();
-      expect(gameBloc.state.fase, FaseTurno.confirmandoJugada);
-      expect(find.text('¿Confirmas colocar el 3?'), findsOneWidget);
-      final confirmMove = find.text('Confirmar Jugada');
-      await tester.ensureVisible(confirmMove);
-      await tester.tap(confirmMove);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('multiplayer-connection-lost')),
-        findsOneWidget,
-      );
-      expect(find.textContaining('Tu jugada está pendiente'), findsOneWidget);
-      expect(find.byKey(const Key('wait-for-game-server')), findsOneWidget);
-      expect(find.byKey(const Key('leave-game-while-offline')), findsOneWidget);
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
-      expect(moveAttempts, 2);
-      expect(
-        find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
-        findsOneWidget,
-      );
-      expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
-      await tester.tap(find.byKey(const Key('show-game-history')));
-      await tester.pumpAndSettle();
-      expect(find.text('Jugador Uno creó la sala.'), findsOneWidget);
-      await tester.tap(find.text('Cerrar'));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+      if (request.method == 'POST' && request.url.path.endsWith('/rooms')) {
+        return http.Response(jsonEncode(roomJson(players: 2)), 201);
+      }
+      if (request.url.path.endsWith('/start')) {
+        latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      if (request.url.path.endsWith('/ABC234')) {
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      if (request.url.path.endsWith('/setup')) {
+        expect(jsonDecode(request.body), {
+          'values': [1, 2, 3, 4, 5, 6],
+        });
+        final board = List.generate(7, (_) => List<int?>.filled(7, null));
+        for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
+          final position = ZonaInicial.posiciones[index];
+          board[position.fila][position.columna] = index + 1;
+        }
+        latestRoom = roomJson(
+          players: 2,
+          phase: 'playing',
+          revision: 3,
+          board: board,
+          dice: [2, 3],
+          ready: true,
+        );
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      if (request.url.path.endsWith('/move')) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        moveAttempts++;
+        if (moveAttempts == 1) {
+          firstMoveCommandId = body['commandId'] as String;
+          throw http.ClientException('offline');
+        }
+        expect(body['commandId'], firstMoveCommandId);
+        expect(body['round'], 1);
+        expect(body['anchorDieIndex'], 0);
+        expect(body['anchor'], {'row': 3, 'column': 1});
+        expect(body['destination'], {'row': 2, 'column': 1});
+        final board = List.generate(7, (_) => List<int?>.filled(7, null));
+        for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
+          final position = ZonaInicial.posiciones[index];
+          board[position.fila][position.columna] = index + 1;
+        }
+        board[2][1] = 3;
+        latestRoom = roomJson(
+          players: 2,
+          phase: 'playing',
+          revision: 4,
+          round: 1,
+          board: board,
+          dice: [2, 3],
+          playedPlayerId: user.id,
+          regionCounters: {'azul1': 1},
+          ready: true,
+        );
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create-multiplayer-room')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('start-multiplayer-game')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Brilliant · ABC234'), findsOneWidget);
+    expect(find.byType(TableroWidget), findsOneWidget);
+    expect(find.byType(SelectorNumerosZonaInicial), findsOneWidget);
+    expect(find.byKey(const Key('mobile-game-content')), findsOneWidget);
+    final gameContext = tester.element(find.byType(TableroWidget));
+    final cubit = gameContext.read<ZonaInicialCubit>();
+    final gameBloc = gameContext.read<JuegoBloc>();
+    for (var index = 0; index < ZonaInicial.posiciones.length; index++) {
+      cubit.asignarASeleccionada(index + 1);
+    }
+    await tester.pumpAndSettle();
+    expect(cubit.state.esValida, isTrue);
+    expect(cubit.state.iniciada, isFalse);
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Inicio'))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.ensureVisible(find.text('Inicio'));
+    await tester.tap(find.text('Inicio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ronda 1: dados compartidos por todos'), findsOneWidget);
+    expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('dado-1')));
+    await tester.pump();
+    final anchorCell = find.byKey(const Key('game-cell-3-1'));
+    await tester.ensureVisible(anchorCell);
+    await tester.tap(anchorCell);
+    await tester.pump();
+    final destinationCell = find.byKey(const Key('game-cell-2-1'));
+    await tester.ensureVisible(destinationCell);
+    await tester.tap(destinationCell);
+    await tester.pumpAndSettle();
+    expect(gameBloc.state.fase, FaseTurno.confirmandoJugada);
+    expect(find.text('¿Confirmas colocar el 3?'), findsOneWidget);
+    final confirmMove = find.text('Confirmar Jugada');
+    await tester.ensureVisible(confirmMove);
+    await tester.tap(confirmMove);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('multiplayer-connection-lost')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Tu jugada está pendiente'), findsOneWidget);
+    expect(find.byKey(const Key('wait-for-game-server')), findsOneWidget);
+    expect(find.byKey(const Key('leave-game-while-offline')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(moveAttempts, 2);
+    expect(
+      find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
+      findsOneWidget,
+    );
+    expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
+    final controlPosition = tester.getTopLeft(
+      find.byKey(const Key('mobile-game-controls')),
+    );
+    await tester.drag(
+      find.byKey(const Key('mobile-game-content')),
+      const Offset(0, -450),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.byKey(const Key('mobile-game-controls'))),
+      controlPosition,
+    );
+    expect(find.text('Jugador Uno creó la sala.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('shows final multiplayer results and returns to the lobby', (
     tester,
@@ -601,6 +614,10 @@ void main() {
               scores: [30, 22],
               winners: ['player-1'],
               finishReason: 'score',
+              playerBoards: {
+                'player-1': List.generate(7, (_) => List<int?>.filled(7, 1)),
+                'player-2': List.generate(7, (_) => List<int?>.filled(7, 2)),
+              },
             ),
           ),
           200,
@@ -639,6 +656,14 @@ void main() {
     expect(find.text('30 pts'), findsOneWidget);
     expect(find.text('22 pts'), findsOneWidget);
     expect(find.text('Se alcanzó la puntuación objetivo.'), findsOneWidget);
+    expect(find.text('Tableros finales'), findsOneWidget);
+    final previews = tester
+        .widgetList<VistaPreviaMapa>(find.byType(VistaPreviaMapa))
+        .toList();
+    expect(
+      previews.map((preview) => preview.valores?.first.first),
+      containsAll([1, 2]),
+    );
 
     await tester.tap(find.byKey(const Key('finished-return-to-lobby')));
     await tester.pump();
@@ -651,4 +676,104 @@ void main() {
     expect(requests, contains('POST /api/multiplayer/rooms/ABC234/leave'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'actualiza el tablero rival abierto y avisa cuando completa zona',
+    (tester) async {
+      final mine = List.generate(7, (_) => List<int?>.filled(7, null));
+      mine[0][0] = 1;
+      final rival = List.generate(7, (_) => List<int?>.filled(7, null));
+      var latestRoom = roomJson(
+        players: 2,
+        phase: 'playing',
+        ready: true,
+        dice: [1, 2],
+        board: mine,
+        playerBoards: {'player-1': mine, 'player-2': rival},
+      );
+      final client = clientWith((request) async {
+        if (request.url.path.endsWith('/lobby'))
+          return http.Response(jsonEncode(lobbyJson()), 200);
+        if (request.url.path.endsWith('/join') ||
+            request.url.path.endsWith('/ABC234')) {
+          return http.Response(jsonEncode(latestRoom), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PantallaMultijugador(user: user, client: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('invite-code-input')),
+        'abc234',
+      );
+      await tester.tap(find.byKey(const Key('join-room-by-code')));
+      await tester.pumpAndSettle();
+      final bloc = tester.element(find.byType(TableroWidget)).read<JuegoBloc>();
+      bloc.add(
+        SeleccionarNumeroAncla(
+          numeroElegido: 1,
+          numeroParaColocar: 2,
+          indiceDado: 1,
+        ),
+      );
+      await tester.pump();
+      expect(bloc.state.fase, FaseTurno.seleccionandoCasilla);
+      await tester.tap(find.byKey(const Key('show-player-boards')));
+      await tester.pumpAndSettle();
+      expect(find.text('Jugador Dos'), findsOneWidget);
+      expect(
+        tester
+            .widget<VistaPreviaMapa>(find.byType(VistaPreviaMapa))
+            .valores![0][0],
+        isNull,
+      );
+
+      final updated = List.generate(7, (_) => List<int?>.filled(7, null));
+      updated[0][0] = 4;
+      latestRoom = roomJson(
+        players: 2,
+        phase: 'playing',
+        ready: true,
+        revision: 2,
+        dice: [1, 2],
+        board: mine,
+        playerBoards: {'player-1': mine, 'player-2': updated},
+        events: [
+          {'id': 'event-1', 'message': 'Jugador Uno creó la sala.'},
+          {
+            'id': 'event-2',
+            'message': 'Jugador Dos completó amarilla.',
+            'playerId': 'player-2',
+            'region': 'amarilla',
+            'round': 1,
+          },
+        ],
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(bloc.state.fase, FaseTurno.seleccionandoCasilla);
+      expect(bloc.state.numeroAncla, 1);
+      expect(
+        tester
+            .widget<VistaPreviaMapa>(find.byType(VistaPreviaMapa))
+            .valores![0][0],
+        4,
+      );
+      await tester.tap(find.text('Cerrar'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('rival-zone-notice')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('rival-zone-notice')),
+          matching: find.text('Jugador Dos completó amarilla.'),
+        ),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

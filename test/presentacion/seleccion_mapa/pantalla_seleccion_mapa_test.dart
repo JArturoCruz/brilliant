@@ -14,7 +14,7 @@ void main() {
     expect(find.text('Mapa 2'), findsOneWidget);
     expect(find.text('Mapa 3'), findsOneWidget);
     expect(find.text('Mapa 4'), findsOneWidget);
-    expect(find.text('Disponible'), findsNWidgets(4));
+    expect(find.text('Disponible'), findsNothing);
     expect(find.byType(VistaPreviaMapa), findsNWidgets(4));
     expect(find.text('Próximamente'), findsNothing);
 

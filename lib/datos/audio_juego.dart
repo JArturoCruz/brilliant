@@ -1,7 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
-enum SonidoJuego { dados, ancla, numero, zonaCompleta, victoria }
+enum SonidoJuego { dados, ancla, numero, zonaCompleta, zonaRival, victoria }
 
 class AudioJuego extends ChangeNotifier {
   AudioJuego._();
@@ -77,6 +77,7 @@ class AudioJuego extends ChangeNotifier {
     SonidoJuego.ancla => 'audio/anchor.wav',
     SonidoJuego.numero => 'audio/place.wav',
     SonidoJuego.zonaCompleta => 'audio/complete.wav',
+    SonidoJuego.zonaRival => 'audio/rival_complete.wav',
     SonidoJuego.victoria => 'audio/victory.wav',
   };
 }
