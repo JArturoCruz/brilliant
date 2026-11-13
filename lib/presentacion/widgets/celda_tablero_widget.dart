@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/zona_inicial_cubit.dart';
 import '../../dominio/mapa_tablero.dart';
 import '../../dominio/posicion.dart';
+import '../../dominio/region.dart';
 import '../../dominio/topologia_tablero.dart';
 import '../tema_mesa.dart';
 
@@ -37,8 +38,9 @@ class CeldaTableroWidget extends StatelessWidget {
     final regionColor = region == null ? null : mapa.tipoDe(region).color;
     final color = regionColor == null
         ? TemaMesa.papel
+        : region == RegionTablero.blanca
+        ? regionColor
         : Color.lerp(regionColor, TemaMesa.papel, 0.16)!;
-    const colorTexto = Colors.white;
     final fragmentada = region != null && mapa.regionEstaFragmentada(region);
 
     final esInicial = state.valores.containsKey(posicion);
@@ -62,47 +64,41 @@ class CeldaTableroWidget extends StatelessWidget {
         // 1. LÓGICA DE CONTENIDO (¿Qué número mostramos?)
         Widget? contenido;
 
-        // Si está en modo provisional, mostramos el número del dado a colocar con un estilo translúcido
         if (esProvisionalActual && juegoState.numeroColocar != null) {
           contenido = KeyedSubtree(
             key: ValueKey('provisional-${juegoState.numeroColocar}'),
-            child: _texto(
-              '${juegoState.numeroColocar}',
-              colorTexto.withAlpha(180),
-            ),
+            child: _texto('${juegoState.numeroColocar}'),
           );
         }
         // Si el juego ya inició y la casilla tiene valor, mostramos el número oficial
         else if (state.iniciada && casillaJuego?.valorActual != null) {
           contenido = KeyedSubtree(
             key: ValueKey('confirmado-${casillaJuego!.valorActual}'),
-            child: _texto('${casillaJuego!.valorActual}', colorTexto),
+            child: _texto('${casillaJuego!.valorActual}'),
           );
         }
         // Si no ha iniciado, mantenemos tu lógica de la configuración inicial
         else if (valorInicial != null) {
           contenido = KeyedSubtree(
             key: ValueKey('inicial-$valorInicial'),
-            child: _texto('$valorInicial', colorTexto),
+            child: _texto('$valorInicial'),
           );
         } else if (esInicial) {
           contenido = KeyedSubtree(
             key: const ValueKey('casilla-inicial-vacia'),
-            child: _texto('?', colorTexto.withAlpha(180)),
+            child: _texto('?'),
           );
         } else if (casillaJuego?.valorActual != null) {
           contenido = KeyedSubtree(
             key: ValueKey('numero-previo-${casillaJuego!.valorActual}'),
-            child: _texto(
-              '${casillaJuego!.valorActual}',
-              colorTexto.withAlpha(60),
-            ),
+            child: _texto('${casillaJuego!.valorActual}'),
           );
         }
 
         // 2. LÓGICA DE DECORACIÓN (Bordes y sombras de iluminación)
         Border? bordeActual;
         List<BoxShadow>? sombraActual;
+        var colorActual = color;
 
         // Si está en fase provisional, le ponemos un borde especial (ej. ámbar o blanco intermitente)
         if (esProvisionalActual) {
@@ -117,25 +113,31 @@ class CeldaTableroWidget extends StatelessWidget {
         }
         // Si la casilla está iluminada por las reglas del juego (posible ancla)
         else if (casillaJuego?.iluminacion == EstadoIluminacion.posibleAncla) {
-          bordeActual = Border.all(color: TemaMesa.dorado, width: 3);
+          const resaltado = Color(0xFFFFEB3B);
+          colorActual = Color.lerp(color, resaltado, 0.35)!;
+          bordeActual = Border.all(color: resaltado, width: 3.5);
           sombraActual = [
             BoxShadow(
-              color: TemaMesa.dorado.withAlpha(140),
-              blurRadius: 12,
-              spreadRadius: 2,
+              color: resaltado.withAlpha(180),
+              blurRadius: 10,
+              spreadRadius: 1,
             ),
+            const BoxShadow(color: Colors.black87, spreadRadius: 1.5),
           ];
         }
         // Si la casilla está iluminada para colocar el segundo dado
         else if (casillaJuego?.iluminacion ==
             EstadoIluminacion.posibleColocacion) {
-          bordeActual = Border.all(color: TemaMesa.verde, width: 3);
+          const resaltado = Color(0xFF00E676);
+          colorActual = Color.lerp(color, resaltado, 0.35)!;
+          bordeActual = Border.all(color: resaltado, width: 3.5);
           sombraActual = [
             BoxShadow(
-              color: TemaMesa.verde.withAlpha(130),
-              blurRadius: 12,
-              spreadRadius: 2,
+              color: resaltado.withAlpha(180),
+              blurRadius: 10,
+              spreadRadius: 1,
             ),
+            const BoxShadow(color: Colors.black87, spreadRadius: 1.5),
           ];
         }
         // Si no está iluminada por el juego, aplicamos tu lógica original de zona inicial
@@ -177,7 +179,7 @@ class CeldaTableroWidget extends StatelessWidget {
                 curve: Curves.easeOut,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: color,
+                  color: colorActual,
                   borderRadius: BorderRadius.circular(7),
                   border: bordeActual,
                   boxShadow: sombraActual,
@@ -232,39 +234,10 @@ class CeldaTableroWidget extends StatelessWidget {
     );
   }
 
-  Widget _texto(String s, Color c) => Padding(
+  Widget _texto(String s) => Padding(
     padding: const EdgeInsets.all(4),
     child: FittedBox(
-      child: _TextoCasilla(texto: s, color: c),
-    ),
-  );
-}
-
-class _TextoCasilla extends StatelessWidget {
-  const _TextoCasilla({required this.texto, required this.color});
-
-  final String texto;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    texto,
-    style: TextStyle(
-      color: color,
-      fontSize: 30,
-      fontWeight: FontWeight.bold,
-      shadows: [
-        for (final offset in const [
-          Offset(-0.7, 0),
-          Offset(0.7, 0),
-          Offset(0, -0.7),
-          Offset(0, 0.7),
-        ])
-          Shadow(
-            color: Colors.black87.withAlpha((color.a * 255).round()),
-            offset: offset,
-          ),
-      ],
+      child: Text(s, style: TemaMesa.numeroTablero.copyWith(fontSize: 30)),
     ),
   );
 }

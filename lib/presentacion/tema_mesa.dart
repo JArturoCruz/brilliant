@@ -8,6 +8,20 @@ class TemaMesa {
   static const nogalOscuro = Color(0xFF3F2B20);
   static const verde = Color(0xFF386641);
   static const dorado = Color(0xFFC28A35);
+  static const numeroTablero = TextStyle(
+    color: Colors.white,
+    fontWeight: FontWeight.bold,
+    shadows: [
+      Shadow(color: Colors.black87, offset: Offset(-0.7, 0)),
+      Shadow(color: Colors.black87, offset: Offset(0.7, 0)),
+      Shadow(color: Colors.black87, offset: Offset(0, -0.7)),
+      Shadow(color: Colors.black87, offset: Offset(0, 0.7)),
+      Shadow(color: Colors.black87, offset: Offset(-0.5, -0.5)),
+      Shadow(color: Colors.black87, offset: Offset(0.5, -0.5)),
+      Shadow(color: Colors.black87, offset: Offset(-0.5, 0.5)),
+      Shadow(color: Colors.black87, offset: Offset(0.5, 0.5)),
+    ],
+  );
 
   static ThemeData get data {
     final scheme = ColorScheme.fromSeed(

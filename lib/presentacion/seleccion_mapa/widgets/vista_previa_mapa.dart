@@ -82,6 +82,8 @@ class _CeldaPrevia extends StatelessWidget {
     );
     final color = region == null
         ? TemaMesa.papel.withAlpha(120)
+        : region == RegionTablero.blanca
+        ? mapa.tipoDe(region).color
         : Color.lerp(mapa.tipoDe(region).color, TemaMesa.papel, 0.16)!;
     return Container(
       margin: const EdgeInsets.all(1),
@@ -93,16 +95,7 @@ class _CeldaPrevia extends StatelessWidget {
             : null,
       ),
       child: valor != null
-          ? FittedBox(
-              child: Text(
-                '$valor',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 2)],
-                ),
-              ),
-            )
+          ? FittedBox(child: Text('$valor', style: TemaMesa.numeroTablero))
           : esInicial && mostrarInicial
           ? Center(
               child: Container(

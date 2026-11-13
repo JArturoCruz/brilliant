@@ -130,6 +130,9 @@ boards during the game and everyone's final board in the results. Players who
 complete the same region during one round share
 that round's reward; the next reward remains for the next round in which
 someone completes it. Claimed rewards remain unavailable if a player concedes.
+Board numbers are white with a fine dark outline, and white regions use light
+gray. Playable anchors and destinations are highlighted in yellow and green
+with contrasting borders.
 The same-region tie avoids a rival-completion sound; completing different
 regions can produce both the player's celebration and the rival sound.
 When no player can use either die, the game waits briefly and rolls the next

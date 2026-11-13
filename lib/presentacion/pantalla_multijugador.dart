@@ -727,7 +727,12 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                 : value == null
                 ? Theme.of(context).colorScheme.surfaceContainerHighest
                 : Theme.of(context).colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+              side: selectableAnchor
+                  ? const BorderSide(color: Colors.amber, width: 2)
+                  : BorderSide.none,
+            ),
             child: InkWell(
               key: Key('multiplayer-cell-$row-$column'),
               onTap: isMyTurn ? () => _onCellTap(row, column) : null,
@@ -735,13 +740,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
               child: Center(
                 child: Text(
                   value?.toString() ?? '',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: selectableAnchor
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
+                  style: TemaMesa.numeroTablero.copyWith(fontSize: 16),
                 ),
               ),
             ),

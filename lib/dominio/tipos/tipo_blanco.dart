@@ -6,7 +6,7 @@ class TipoBlanco extends TipoAzul {
   const TipoBlanco();
 
   @override
-  Color get color => const Color(0xFFBDBDBD);
+  Color get color => const Color(0xFFD0D0D0);
 
   @override
   String get descripcion => 'Todos los números de la sección deben ser iguales';
