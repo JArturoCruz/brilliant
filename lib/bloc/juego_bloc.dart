@@ -109,8 +109,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
       state.tablero,
       event.numeroElegido,
       event.numeroParaColocar,
-    ))
+    )) {
       return;
+    }
     final nuevoTablero = _iluminarOpciones(
       event.numeroElegido,
       event.numeroParaColocar,
@@ -535,8 +536,9 @@ class JuegoBloc extends Bloc<JuegoEvent, JuegoState> {
             ancla.fila,
             ancla.columna,
             otro,
-          ))
+          )) {
         continue;
+      }
       resultado[ancla.fila][ancla.columna] =
           resultado[ancla.fila][ancla.columna].copyWith(
             iluminacion: EstadoIluminacion.posibleAncla,

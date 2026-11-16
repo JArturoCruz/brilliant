@@ -19,6 +19,7 @@ import '../bloc/zona_inicial_cubit.dart';
 import '../dominio/tablero.dart';
 import '../dominio/zona_inicial.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
+import 'multijugador/sonido_zona_rival.dart';
 import 'seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
@@ -425,8 +426,11 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       return;
     }
     for (final event in incoming) {
-      if (event.playerId == null || event.region == null || event.round == null)
+      if (event.playerId == null ||
+          event.region == null ||
+          event.round == null) {
         continue;
+      }
       _pendingCompletions.putIfAbsent(event.round!, () => []).add(event);
       if (event.playerId == _multiplayerUser.id) {
         unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
@@ -443,16 +447,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         .toList();
     for (final round in settled) {
       final events = _pendingCompletions.remove(round)!;
-      final ownRegions = events
-          .where((event) => event.playerId == _multiplayerUser.id)
-          .map((event) => event.region)
-          .toSet();
-      final rivalOnly = events.any(
-        (event) =>
-            event.playerId != _multiplayerUser.id &&
-            !ownRegions.contains(event.region),
-      );
-      if (rivalOnly) {
+      if (debeSonarZonaRival(events, _multiplayerUser.id)) {
         unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaRival));
       }
     }
@@ -835,7 +830,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                     const InstruccionZonaInicial(),
                                     TableroWidget(mapa: widget.mapa),
                                     const Text(
-                                      'Las casillas con la misma etiqueta forman una sola zona.',
+                                      'Las casillas del mismo color con un rombo ◆ forman una sola zona.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(fontSize: 11),
                                     ),
@@ -908,7 +903,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                               (_connectionLost ? 100 : 0),
                                         ),
                                         const Text(
-                                          'Las casillas con la misma etiqueta forman una sola zona.',
+                                          'Las casillas del mismo color con un rombo ◆ forman una sola zona.',
                                           textAlign: TextAlign.center,
                                           style: TextStyle(fontSize: 11),
                                         ),

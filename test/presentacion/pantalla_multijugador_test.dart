@@ -499,7 +499,6 @@ void main() {
           board: board,
           dice: [2, 3],
           playedPlayerId: user.id,
-          regionCounters: {'azul1': 1},
           ready: true,
         );
         return http.Response(jsonEncode(latestRoom), 200);
@@ -573,6 +572,22 @@ void main() {
       find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
       findsOneWidget,
     );
+    expect(gameBloc.state.puntuacionTotal, 0);
+    expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], isNull);
+    latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      revision: 5,
+      round: 2,
+      board: latestRoom['board'] as List<List<int?>>,
+      dice: [2, 3],
+      scores: [8, 0],
+      regionCounters: {'azul1': 1},
+      ready: true,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(gameBloc.state.puntuacionTotal, 8);
     expect(gameBloc.state.contadorCompletadasPorRegion['azul1'], 1);
     final controlPosition = tester.getTopLeft(
       find.byKey(const Key('mobile-game-controls')),
@@ -792,8 +807,9 @@ void main() {
         playerBoards: {'player-1': mine, 'player-2': rival},
       );
       final client = clientWith((request) async {
-        if (request.url.path.endsWith('/lobby'))
+        if (request.url.path.endsWith('/lobby')) {
           return http.Response(jsonEncode(lobbyJson()), 200);
+        }
         if (request.url.path.endsWith('/join') ||
             request.url.path.endsWith('/ABC234')) {
           return http.Response(jsonEncode(latestRoom), 200);

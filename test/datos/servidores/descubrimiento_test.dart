@@ -11,7 +11,7 @@ void main() {
       0,
     );
     addTearDown(server.close);
-    server.listen((event) {
+    server.listen((event) async {
       if (event != RawSocketEvent.read) return;
       final datagram = server.receive();
       if (datagram == null) return;
@@ -23,14 +23,22 @@ void main() {
         'BRILLIANT_SERVER_V1:$nonce:3000',
         'BRILLIANT_SERVER_V1:$nonce:3000',
       ]) {
-        server.send(utf8.encode(response), datagram.address, datagram.port);
+        // send devuelve 0 y descarta el datagrama si el socket no está listo.
+        while (server.send(
+              utf8.encode(response),
+              datagram.address,
+              datagram.port,
+            ) ==
+            0) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
       }
     });
 
     final found = await descubrirServidores(
       puerto: server.port,
       destino: '127.0.0.1',
-      espera: const Duration(milliseconds: 300),
+      espera: const Duration(seconds: 1),
     );
     expect(found, ['http://127.0.0.1:3000']);
   });

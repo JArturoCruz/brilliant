@@ -41,6 +41,97 @@ Widget _celda(
 }
 
 void main() {
+  testWidgets(
+    'el rombo de una zona fragmentada es visible sin número y con él',
+    (tester) async {
+      final cubit = ZonaInicialCubit();
+      final bloc = JuegoBloc();
+      const posicion = Posicion(0, 0);
+
+      Future<void> mostrar(Casilla? casilla) async {
+        await tester.pumpWidget(
+          _envolver(
+            cubit,
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: _celda(posicion, casilla: casilla),
+            ),
+            bloc: bloc,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final rombo = find.byKey(const ValueKey('rombo-zona-0-0'));
+      await mostrar(null);
+      final rectCelda = tester.getRect(find.byType(AnimatedContainer));
+      final rectRombo = tester.getRect(rombo);
+      expect(rectCelda.contains(rectRombo.center), isTrue);
+      expect(rectRombo.width, greaterThan(0));
+      final container = tester.widget<Container>(
+        find.descendant(of: rombo, matching: find.byType(Container)),
+      );
+      final colorCelda =
+          (tester
+                      .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                      .decoration!
+                  as BoxDecoration)
+              .color!;
+      final colorRombo = (container.decoration! as BoxDecoration).color!;
+      expect(colorRombo, Color.lerp(colorCelda, Colors.black, 0.5));
+
+      await mostrar(Casilla(fila: 0, columna: 0, valorActual: 5));
+      expect(find.text('5'), findsOneWidget);
+      expect(tester.getRect(rombo).center, rectRombo.center);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      cubit.close();
+      bloc.close();
+    },
+  );
+
+  testWidgets(
+    'el rombo usa un tono de la zona blanca y no marca zonas continuas',
+    (tester) async {
+      final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa2);
+      final bloc = JuegoBloc(mapa: MapaTablero.mapa2);
+      await tester.pumpWidget(
+        _envolver(
+          cubit,
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: _celda(const Posicion(0, 3), mapa: MapaTablero.mapa2),
+              ),
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: _celda(const Posicion(0, 2), mapa: MapaTablero.mapa2),
+              ),
+            ],
+          ),
+          bloc: bloc,
+        ),
+      );
+      final rombo = find.byKey(const ValueKey('rombo-zona-0-3'));
+      expect(rombo, findsOneWidget);
+      final marker = tester.widget<Container>(
+        find.descendant(of: rombo, matching: find.byType(Container)),
+      );
+      expect(
+        (marker.decoration! as BoxDecoration).color,
+        Color.lerp(const Color(0xFFD0D0D0), Colors.black, 0.5),
+      );
+      expect(find.byKey(const ValueKey('rombo-zona-0-2')), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      cubit.close();
+      bloc.close();
+    },
+  );
+
   testWidgets('una celda vacía de la ZonaInicial muestra "?"', (tester) async {
     final cubit = ZonaInicialCubit();
     final pos = ZonaInicial.posiciones.first;

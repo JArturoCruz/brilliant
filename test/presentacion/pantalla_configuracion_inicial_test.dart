@@ -41,26 +41,17 @@ class _AuthenticatedGateway implements AuthGateway {
   Future<void> deleteAccount(String password) async {}
 }
 
+void _usarPantalla(WidgetTester tester, [Size size = const Size(1200, 1600)]) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
-  setUp(() {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    final binding = TestWidgetsFlutterBinding.instance;
-    binding.window.physicalSizeTestValue = const Size(1200, 1600);
-    binding.window.devicePixelRatioTestValue = 1.0;
-  });
-
-  tearDown(() {
-    final binding = TestWidgetsFlutterBinding.instance;
-    binding.window.clearPhysicalSizeTestValue();
-    binding.window.clearDevicePixelRatioTestValue();
-  });
-
   testWidgets('navega desde inicio al mapa disponible en móvil', (
     tester,
   ) async {
-    final binding = TestWidgetsFlutterBinding.instance;
-    binding.window.physicalSizeTestValue = const Size(320, 740);
-    binding.window.devicePixelRatioTestValue = 1;
+    _usarPantalla(tester, const Size(320, 740));
 
     await tester.pumpWidget(
       const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
@@ -112,6 +103,7 @@ void main() {
   testWidgets('arma la pantalla con título, tablero, selector y botón', (
     tester,
   ) async {
+    _usarPantalla(tester);
     await tester.pumpWidget(
       const MaterialApp(home: PantallaConfiguracionInicial()),
     );
@@ -125,6 +117,7 @@ void main() {
   testWidgets('el tablero aprovecha el espacio disponible en computadora', (
     tester,
   ) async {
+    _usarPantalla(tester);
     await tester.pumpWidget(const MaterialApp(home: PantallaJuego()));
 
     final tableroRect = tester.getRect(find.byType(TableroWidget));
@@ -141,9 +134,7 @@ void main() {
   testWidgets('inicia la partida individual desde el diseño móvil', (
     tester,
   ) async {
-    final binding = TestWidgetsFlutterBinding.instance;
-    binding.window.physicalSizeTestValue = const Size(320, 740);
-    binding.window.devicePixelRatioTestValue = 1;
+    _usarPantalla(tester, const Size(320, 740));
 
     await tester.pumpWidget(
       const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
@@ -175,9 +166,7 @@ void main() {
   testWidgets('inicia la partida individual desde el diseño de escritorio', (
     tester,
   ) async {
-    final binding = TestWidgetsFlutterBinding.instance;
-    binding.window.physicalSizeTestValue = const Size(1200, 900);
-    binding.window.devicePixelRatioTestValue = 1;
+    _usarPantalla(tester, const Size(1200, 900));
 
     await tester.pumpWidget(
       const app.BrilliantApp(authGateway: _AuthenticatedGateway()),
@@ -207,6 +196,7 @@ void main() {
   });
 
   testWidgets('el botón Inicio empieza deshabilitado', (tester) async {
+    _usarPantalla(tester);
     await tester.pumpWidget(
       const MaterialApp(home: PantallaConfiguracionInicial()),
     );
@@ -219,6 +209,7 @@ void main() {
   testWidgets(
     'flujo completo: llenar los 6 números distintos habilita Inicio y tocarlo activa la configuración',
     (tester) async {
+      _usarPantalla(tester);
       await tester.pumpWidget(
         const MaterialApp(home: PantallaConfiguracionInicial()),
       );
@@ -246,6 +237,7 @@ void main() {
   testWidgets('tocar un número repetido muestra el aviso de número repetido', (
     tester,
   ) async {
+    _usarPantalla(tester);
     await tester.pumpWidget(
       const MaterialApp(home: PantallaConfiguracionInicial()),
     );

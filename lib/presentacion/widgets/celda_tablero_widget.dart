@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/casilla.dart';
@@ -185,28 +187,9 @@ class CeldaTableroWidget extends StatelessWidget {
                   boxShadow: sombraActual,
                 ),
                 child: Stack(
+                  fit: StackFit.expand,
                   alignment: Alignment.center,
                   children: [
-                    if (fragmentada)
-                      Positioned(
-                        top: 1,
-                        left: 1,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            mapa.etiquetaRegion(region),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      ),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 280),
                       switchInCurve: Curves.easeOutBack,
@@ -224,6 +207,28 @@ class CeldaTableroWidget extends StatelessWidget {
                           contenido ??
                           const SizedBox.shrink(key: ValueKey('sin-numero')),
                     ),
+                    if (fragmentada)
+                      Positioned(
+                        top: 3,
+                        left: 3,
+                        child: Transform.rotate(
+                          key: ValueKey(
+                            'rombo-zona-${posicion.fila}-${posicion.columna}',
+                          ),
+                          angle: math.pi / 4,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Color.lerp(color, Colors.black, 0.5),
+                              border: Border.all(
+                                color: Color.lerp(color, Colors.white, 0.4)!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

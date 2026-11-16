@@ -129,6 +129,7 @@ class RoomEvent {
     this.playerId,
     this.region,
     this.round,
+    this.points,
   });
 
   final String id;
@@ -136,6 +137,7 @@ class RoomEvent {
   final String? playerId;
   final String? region;
   final int? round;
+  final int? points;
 
   factory RoomEvent.fromJson(Map<String, dynamic> json) => RoomEvent(
     id: _string(json['id']),
@@ -143,6 +145,7 @@ class RoomEvent {
     playerId: json['playerId'] == null ? null : _string(json['playerId']),
     region: json['region'] == null ? null : _string(json['region']),
     round: json['round'] == null ? null : _integer(json['round']),
+    points: json['points'] == null ? null : _integer(json['points']),
   );
 }
 

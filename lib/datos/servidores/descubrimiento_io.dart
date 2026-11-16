@@ -21,14 +21,19 @@ Future<List<String>> descubrirServidores({
     socket.listen(
       (event) {
         if (event != RawSocketEvent.read) return;
-        final datagram = socket.receive();
-        if (datagram == null) return;
-        final message = utf8.decode(datagram.data, allowMalformed: true);
-        final match = RegExp('^BRILLIANT_SERVER_V1:$nonce:([0-9]{1,5})\$')
-            .firstMatch(message);
-        final port = match == null ? null : int.tryParse(match.group(1)!);
-        if (port == null || port < 1 || port > 65535) return;
-        servers.add('http://${datagram.address.address}:$port');
+        // Varias respuestas pueden llegar juntas: se leen todas las pendientes.
+        for (
+          var datagram = socket.receive();
+          datagram != null;
+          datagram = socket.receive()
+        ) {
+          final message = utf8.decode(datagram.data, allowMalformed: true);
+          final match = RegExp('^BRILLIANT_SERVER_V1:$nonce:([0-9]{1,5})\$')
+              .firstMatch(message);
+          final port = match == null ? null : int.tryParse(match.group(1)!);
+          if (port == null || port < 1 || port > 65535) continue;
+          servers.add('http://${datagram.address.address}:$port');
+        }
       },
       onError: (Object error, StackTrace stack) {
         if (!finished.isCompleted) finished.completeError(error, stack);

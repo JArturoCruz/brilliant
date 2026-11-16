@@ -126,15 +126,17 @@ interface and map rules. Everyone plays each round with the same pair of dice
 at the same time; the next pair is rolled only after all players complete or
 skip that round. The server validates every move and shares the current boards
 with the authenticated members of the room; players can inspect opponents'
-boards during the game and everyone's final board in the results. Players who
-complete the same region during one round share
-that round's reward; the next reward remains for the next round in which
-someone completes it. Claimed rewards remain unavailable if a player concedes.
+boards during the game and everyone's final board in the results. Only completed
+regions award points. Scores and region rewards are updated once every active
+player has played or skipped the round. Players who complete the same region in
+that round share the reward; the next reward remains for a later round. Claimed
+rewards remain unavailable if a player concedes.
 Board numbers are white with a fine dark outline, and white regions use light
 gray. Playable anchors and destinations are highlighted in yellow and green
 with contrasting borders.
-The same-region tie avoids a rival-completion sound; completing different
-regions can produce both the player's celebration and the rival sound.
+At the end of a round, a rival completion plays a sad brass sound only for
+players who did not score points for any region in that round. Completing a
+region after all of its rewards are claimed does not count as scoring.
 When no player can use either die, the game waits briefly and rolls the next
 round if some future roll can still be played.
 
