@@ -575,10 +575,10 @@ class AuthClient implements AuthGateway {
     }
     return switch (code) {
       'USERNAME_NOT_FOUND' => 'No existe una cuenta con ese nombre de usuario.',
-      'INCORRECT_PASSWORD' ||
+      'INCORRECT_PASSWORD' => 'El PIN es incorrecto.',
       'INVALID_PASSWORD' => 'La contraseña o el PIN son incorrectos.',
-      'INVALID_USERNAME_OR_PASSWORD' || 'INVALID_EMAIL_OR_PASSWORD' =>
-        'El usuario o la contraseña son incorrectos.',
+      'INVALID_USERNAME_OR_PASSWORD' ||
+      'INVALID_EMAIL_OR_PASSWORD' => 'El usuario o el PIN son incorrectos.',
       'USERNAME_IS_ALREADY_TAKEN' ||
       'USER_ALREADY_EXISTS' ||
       'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL' =>
@@ -592,7 +592,7 @@ class AuthClient implements AuthGateway {
       'INVALID_PIN' => 'El PIN debe tener exactamente 6 dígitos numéricos.',
       'EMAIL_NOT_VERIFIED' => 'La cuenta todavía no está verificada.',
       _ when path == '/api/auth/sign-in/username' && status == 401 =>
-        'El usuario o la contraseña son incorrectos.',
+        'El usuario o el PIN son incorrectos.',
       _ when status == 401 =>
         'La sesión no es válida. Inicia sesión nuevamente.',
       _ when status == 403 => 'No tienes permiso para realizar esta acción.',

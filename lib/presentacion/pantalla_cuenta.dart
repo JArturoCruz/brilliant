@@ -248,28 +248,23 @@ class _PantallaCuentaState extends State<PantallaCuenta> {
             key: const Key('account-password'),
             controller: _passwordController,
             obscureText: true,
-            keyboardType: _isRegistering
-                ? TextInputType.number
-                : TextInputType.text,
-            maxLength: _isRegistering ? 6 : null,
-            maxLengthEnforcement: MaxLengthEnforcement.none,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             textInputAction: TextInputAction.done,
             autofillHints: _isRegistering
                 ? const [AutofillHints.newPassword]
                 : const [AutofillHints.password],
             onFieldSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              labelText: _isRegistering
-                  ? 'PIN de 6 dígitos'
-                  : 'Contraseña o PIN',
-              border: const OutlineInputBorder(),
+            decoration: const InputDecoration(
+              labelText: 'PIN de 6 dígitos',
+              border: OutlineInputBorder(),
             ),
             validator: (value) {
               final password = value ?? '';
-              if (_isRegistering && !RegExp(r'^[0-9]{6}$').hasMatch(password)) {
+              if (!RegExp(r'^[0-9]{6}$').hasMatch(password)) {
                 return 'Ingresa exactamente 6 dígitos numéricos.';
               }
-              if (password.isEmpty) return 'Ingresa tu contraseña.';
               return null;
             },
           ),

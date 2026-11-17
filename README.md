@@ -25,9 +25,10 @@ En la pantalla inicial escribe la IP o URL del servidor y pulsa **Conectar**.
 Después crea una cuenta o inicia sesión para acceder al juego y al
 multijugador. Se verifica el servidor antes de habilitar la cuenta. La
 dirección se recuerda y cambiar de servidor cierra la sesión local.
-El registro solo solicita un nombre de usuario único y un PIN numérico
-de exactamente seis dígitos. Las cuentas anteriores conservan su
-contraseña y pueden iniciar sesión con su nombre de usuario.
+El registro y el inicio de sesión requieren un nombre de usuario y un PIN
+numérico de exactamente seis dígitos. Las cuentas antiguas con contraseñas que
+no cumplen este formato ya no pueden iniciar sesión; no hay recuperación
+automática de credenciales.
 
 - En el equipo servidor, usa `localhost:3000`.
 - En otro equipo o teléfono de la misma red, usa la IPv4 del servidor y el

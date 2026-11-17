@@ -76,7 +76,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('account-password')), '123456');
     for (final mensaje in [
       'No existe una cuenta con ese nombre de usuario.',
-      'La contraseña o el PIN son incorrectos.',
+      'El PIN es incorrecto.',
       'El servidor tuvo un problema. Inténtalo de nuevo más tarde.',
     ]) {
       gateway.signInError = AuthApiException(mensaje, requestId: 'ref-test');
@@ -107,7 +107,7 @@ void main() {
       TextInputType.number,
     );
     await tester.enterText(find.byKey(const Key('account-name')), 'Jugador');
-    for (final password in ['12345', '12345a', '1234567']) {
+    for (final password in ['12345', '12345a']) {
       await tester.enterText(
         find.byKey(const Key('account-password')),
         password,
@@ -145,15 +145,48 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('account-name')), 'Player One');
-    await tester.enterText(
-      find.byKey(const Key('account-password')),
-      'Old-Password12',
-    );
+    await tester.enterText(find.byKey(const Key('account-password')), '001234');
     await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
     await tester.pumpAndSettle();
 
     expect(gateway.loginCalled, isTrue);
-    expect(gateway.loginPassword, 'Old-Password12');
+    expect(gateway.loginPassword, '001234');
+    expect(find.text('Sesión iniciada'), findsOneWidget);
+  });
+
+  testWidgets('el inicio de sesión exige un PIN de seis dígitos', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('¿Ya tienes cuenta? Inicia sesión'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Jugador');
+    final campo = find.byKey(const Key('account-password'));
+    final texto = tester.widget<TextField>(
+      find.descendant(of: campo, matching: find.byType(TextField)),
+    );
+    expect(texto.keyboardType, TextInputType.number);
+    expect(find.text('PIN de 6 dígitos'), findsOneWidget);
+
+    await tester.enterText(campo, '12ab3');
+    expect(texto.controller!.text, '123');
+    await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Ingresa exactamente 6 dígitos numéricos.'),
+      findsOneWidget,
+    );
+    expect(gateway.loginCalled, isFalse);
+
+    await tester.enterText(campo, '0012347');
+    expect(texto.controller!.text, '001234');
+    await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+    await tester.pumpAndSettle();
+    expect(gateway.loginPassword, '001234');
     expect(find.text('Sesión iniciada'), findsOneWidget);
   });
 

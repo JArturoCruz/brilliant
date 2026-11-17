@@ -328,13 +328,13 @@ void main() {
           'USERNAME_NOT_FOUND',
           'No existe una cuenta con ese nombre de usuario.',
         ),
-        (401, 'INCORRECT_PASSWORD', 'La contraseña o el PIN son incorrectos.'),
+        (401, 'INCORRECT_PASSWORD', 'El PIN es incorrecto.'),
         (
           401,
           'INVALID_USERNAME_OR_PASSWORD',
-          'El usuario o la contraseña son incorrectos.',
+          'El usuario o el PIN son incorrectos.',
         ),
-        (401, '', 'El usuario o la contraseña son incorrectos.'),
+        (401, '', 'El usuario o el PIN son incorrectos.'),
         (
           400,
           'USERNAME_IS_ALREADY_TAKEN',
