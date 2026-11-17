@@ -18,9 +18,7 @@ class MultiplayerApiException implements Exception {
 
   bool get isConnectionFailure => statusCode == null || statusCode! >= 500;
 
-  String get userMessage => requestId == null
-      ? message
-      : '$message\nCódigo de referencia: $requestId';
+  String get userMessage => message;
 
   @override
   String toString() => message;

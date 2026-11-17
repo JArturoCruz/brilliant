@@ -292,7 +292,7 @@ void main() {
   );
 
   test(
-    'clears local session and returns a trace code if sign-out fails',
+    'clears local session without displaying a trace code if sign-out fails',
     () async {
       final tokenStore = MemoryTokenStore()..token = 'session-token';
       final client = AuthClient(
@@ -311,11 +311,76 @@ void main() {
               .having(
                 (error) => error.userMessage,
                 'user-facing error',
-                contains('Código de referencia:'),
+                isNot(contains('Código de referencia:')),
               ),
         ),
       );
       expect(tokenStore.token, isNull);
+    },
+  );
+
+  test(
+    'traduce errores de acceso y de servidor sin mostrar referencias',
+    () async {
+      final errores = [
+        (
+          401,
+          'USERNAME_NOT_FOUND',
+          'No existe una cuenta con ese nombre de usuario.',
+        ),
+        (401, 'INCORRECT_PASSWORD', 'La contraseña o el PIN son incorrectos.'),
+        (
+          401,
+          'INVALID_USERNAME_OR_PASSWORD',
+          'El usuario o la contraseña son incorrectos.',
+        ),
+        (401, '', 'El usuario o la contraseña son incorrectos.'),
+        (
+          400,
+          'USERNAME_IS_ALREADY_TAKEN',
+          'Ese nombre de usuario ya está en uso.',
+        ),
+        (
+          400,
+          'INVALID_PIN',
+          'El PIN debe tener exactamente 6 dígitos numéricos.',
+        ),
+        (
+          500,
+          'INTERNAL_SERVER_ERROR',
+          'El servidor tuvo un problema. Inténtalo de nuevo más tarde.',
+        ),
+        (
+          400,
+          'UNEXPECTED',
+          'No se pudo completar la solicitud. Inténtalo de nuevo.',
+        ),
+      ];
+      for (final (status, code, esperado) in errores) {
+        final client = AuthClient(
+          baseUrl: 'http://localhost:3000',
+          tokenStore: MemoryTokenStore(),
+          httpClient: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'code': code,
+                'message': 'Untranslated server error',
+              }),
+              status,
+            ),
+          ),
+        );
+        await expectLater(
+          client.signIn(name: 'Jugador', password: '123456'),
+          throwsA(
+            isA<AuthApiException>().having(
+              (error) => error.userMessage,
+              'mensaje',
+              esperado,
+            ),
+          ),
+        );
+      }
     },
   );
 

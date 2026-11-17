@@ -10,6 +10,7 @@ class FakeAuthGateway implements AuthGateway {
   String? registeredPassword;
   String? loginPassword;
   AuthApiException? registrationError;
+  AuthApiException? signInError;
   AuthApiException? signOutError;
 
   static final account = AuthUser(
@@ -37,6 +38,8 @@ class FakeAuthGateway implements AuthGateway {
   }) async {
     loginCalled = true;
     loginPassword = password;
+    final error = signInError;
+    if (error != null) throw error;
     user = account;
     return account;
   }
@@ -59,6 +62,31 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
+  testWidgets('muestra errores específicos al iniciar sesión sin referencias', (
+    tester,
+  ) async {
+    final gateway = FakeAuthGateway();
+    await tester.pumpWidget(
+      MaterialApp(home: PantallaCuenta(authGateway: gateway)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('¿Ya tienes cuenta? Inicia sesión'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-name')), 'Jugador');
+    await tester.enterText(find.byKey(const Key('account-password')), '123456');
+    for (final mensaje in [
+      'No existe una cuenta con ese nombre de usuario.',
+      'La contraseña o el PIN son incorrectos.',
+      'El servidor tuvo un problema. Inténtalo de nuevo más tarde.',
+    ]) {
+      gateway.signInError = AuthApiException(mensaje, requestId: 'ref-test');
+      await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+      await tester.pumpAndSettle();
+      expect(find.text(mensaje), findsOneWidget);
+      expect(find.textContaining('Código de referencia:'), findsNothing);
+    }
+  });
+
   testWidgets('rechaza PIN con longitud incorrecta o no numérico', (
     tester,
   ) async {
@@ -188,7 +216,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
   });
 
-  testWidgets('shows a support reference when registration is rejected', (
+  testWidgets('shows registration error without a support reference', (
     tester,
   ) async {
     final gateway = FakeAuthGateway()
@@ -207,12 +235,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text(
-        'Ese nombre de usuario ya está en uso.\nCódigo de referencia: ref-123',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Ese nombre de usuario ya está en uso.'), findsOneWidget);
+    expect(find.textContaining('Código de referencia:'), findsNothing);
     expect(find.byKey(const Key('account-name')), findsOneWidget);
   });
 
@@ -235,8 +259,9 @@ void main() {
 
     expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
     expect(
-      find.textContaining('Código de referencia: ref-logout'),
+      find.textContaining('No se pudo conectar con el servidor.'),
       findsOneWidget,
     );
+    expect(find.textContaining('Código de referencia:'), findsNothing);
   });
 }

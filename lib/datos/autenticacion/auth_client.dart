@@ -130,9 +130,7 @@ class AuthApiException implements Exception {
   final int? statusCode;
   final String? requestId;
 
-  String get userMessage => requestId == null
-      ? message
-      : '$message\nCódigo de referencia: $requestId';
+  String get userMessage => message;
 
   @override
   String toString() => message;
@@ -500,14 +498,19 @@ class AuthClient implements AuthGateway {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errorBody = _tryDecodeObject(response.body);
       final retryAfter = int.tryParse(response.headers['x-retry-after'] ?? '');
+      final code = errorBody?['code'];
       final message = response.statusCode == 429
           ? retryAfter == null
                 ? 'Se hicieron demasiados intentos. Espera un momento e '
                       'inténtalo de nuevo.'
                 : 'Se hicieron demasiados intentos. Vuelve a intentarlo en '
                       '$retryAfter segundos.'
-          : errorBody?['message'] as String? ??
-                'No se pudo completar la solicitud. Inténtalo de nuevo.';
+          : _mensajeError(
+              path,
+              response.statusCode,
+              code is String ? code : null,
+              errorBody?['message'],
+            );
       _recordDiagnostic(
         requestId: requestId,
         method: method,
@@ -518,7 +521,7 @@ class AuthClient implements AuthGateway {
       );
       throw AuthApiException(
         message,
-        code: errorBody?['code'] as String?,
+        code: code is String ? code : null,
         statusCode: response.statusCode,
         requestId: requestId,
       );
@@ -532,6 +535,71 @@ class AuthClient implements AuthGateway {
       statusCode: response.statusCode,
     );
     return response;
+  }
+
+  String _mensajeError(String path, int status, String? code, Object? message) {
+    if (status >= 500) {
+      return 'El servidor tuvo un problema. Inténtalo de nuevo más tarde.';
+    }
+    if (path.startsWith('/api/multiplayer/')) {
+      const codigosMultijugador = {
+        'UNAUTHORIZED',
+        'INVALID_REQUEST',
+        'INVALID_MOVE',
+        'INVALID_JSON',
+        'REQUEST_TOO_LARGE',
+        'INVALID_PLAYER_COUNT',
+        'INVALID_MAP',
+        'INVALID_SCORE_POSITION',
+        'ROOM_NOT_FOUND',
+        'ROOM_DISSOLVED',
+        'ROOM_FULL',
+        'HOST_ONLY',
+        'ROOM_ALREADY_STARTED',
+        'NOT_ENOUGH_PLAYERS',
+        'PLAYER_RECONNECTING',
+        'GAME_NOT_IN_SETUP',
+        'INVALID_INITIAL_BOARD',
+        'GAME_NOT_ACTIVE',
+        'PLAYER_FORFEITED',
+        'STALE_ROUND',
+        'ROUND_ALREADY_COMPLETED',
+        'ALREADY_IN_ROOM',
+      };
+      if (codigosMultijugador.contains(code) &&
+          message is String &&
+          message.isNotEmpty) {
+        return message;
+      }
+      return 'No se pudo completar la solicitud multijugador. Inténtalo de nuevo.';
+    }
+    return switch (code) {
+      'USERNAME_NOT_FOUND' => 'No existe una cuenta con ese nombre de usuario.',
+      'INCORRECT_PASSWORD' ||
+      'INVALID_PASSWORD' => 'La contraseña o el PIN son incorrectos.',
+      'INVALID_USERNAME_OR_PASSWORD' || 'INVALID_EMAIL_OR_PASSWORD' =>
+        'El usuario o la contraseña son incorrectos.',
+      'USERNAME_IS_ALREADY_TAKEN' ||
+      'USER_ALREADY_EXISTS' ||
+      'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL' =>
+        'Ese nombre de usuario ya está en uso.',
+      'INVALID_USERNAME' ||
+      'INVALID_DISPLAY_USERNAME' => 'El nombre de usuario no es válido.',
+      'USERNAME_TOO_SHORT' => 'El nombre de usuario es demasiado corto.',
+      'USERNAME_TOO_LONG' => 'El nombre de usuario es demasiado largo.',
+      'PASSWORD_TOO_SHORT' => 'La contraseña es demasiado corta.',
+      'PASSWORD_TOO_LONG' => 'La contraseña es demasiado larga.',
+      'INVALID_PIN' => 'El PIN debe tener exactamente 6 dígitos numéricos.',
+      'EMAIL_NOT_VERIFIED' => 'La cuenta todavía no está verificada.',
+      _ when path == '/api/auth/sign-in/username' && status == 401 =>
+        'El usuario o la contraseña son incorrectos.',
+      _ when status == 401 =>
+        'La sesión no es válida. Inicia sesión nuevamente.',
+      _ when status == 403 => 'No tienes permiso para realizar esta acción.',
+      _ when path == '/api/auth/sign-up/email' && status == 409 =>
+        'Ese nombre de usuario ya está en uso.',
+      _ => 'No se pudo completar la solicitud. Inténtalo de nuevo.',
+    };
   }
 
   void _recordDiagnostic({

@@ -235,9 +235,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Código de referencia: ref-session'),
+      find.textContaining('No se pudo conectar con el servidor.'),
       findsOneWidget,
     );
+    expect(find.textContaining('Código de referencia:'), findsNothing);
     expect(find.byKey(const Key('retry-session')), findsOneWidget);
     expect(find.text('Jugar'), findsNothing);
 
