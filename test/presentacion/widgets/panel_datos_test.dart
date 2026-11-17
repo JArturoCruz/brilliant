@@ -8,6 +8,136 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('confirma antes de saltar el turno individual', (tester) async {
+    var dado = 1;
+    final bloc = JuegoBloc(tirarDado: () => dado++);
+    addTearDown(bloc.close);
+    bloc.add(IniciarTurno({const Posicion(0, 0): 1}));
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.seleccionandoAncla,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(value: bloc, child: const PanelDados()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Saltar Turno'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No colocarás ningún número en esta ronda. ¿Deseas continuar?'),
+      findsOneWidget,
+    );
+    expect(bloc.state.fase, FaseTurno.seleccionandoAncla);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(bloc.state.fase, FaseTurno.seleccionandoAncla);
+
+    await tester.tap(find.text('Saltar Turno'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-skip-turn')));
+    await tester.pumpAndSettle();
+    expect(bloc.state.fase, FaseTurno.turnoTerminado);
+    expect(
+      bloc.state.tablero
+          .expand((fila) => fila)
+          .where((casilla) => casilla.valorActual != null),
+      hasLength(1),
+    );
+  });
+
+  testWidgets('solo envía el salto multijugador al confirmar', (tester) async {
+    final bloc = JuegoBloc();
+    addTearDown(bloc.close);
+    bloc.add(
+      SincronizarJuegoMultijugador(
+        JuegoState(
+          tablero: bloc.state.tablero,
+          fase: FaseTurno.seleccionandoAncla,
+          dado1: 1,
+          dado2: 2,
+        ),
+      ),
+    );
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.seleccionandoAncla,
+    );
+    var saltos = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: PanelDados(
+              ronda: 1,
+              skipTurnLabel: 'Terminar mi ronda',
+              onSkipTurn: () => saltos++,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Terminar mi ronda'));
+    await tester.pumpAndSettle();
+    expect(saltos, 0);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(saltos, 0);
+    await tester.tap(find.text('Terminar mi ronda'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(saltos, 0);
+    await tester.tap(find.text('Terminar mi ronda'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-skip-turn')));
+    await tester.pumpAndSettle();
+    expect(saltos, 1);
+  });
+
+  testWidgets('no salta una ronda nueva si cambió durante la confirmación', (
+    tester,
+  ) async {
+    final bloc = JuegoBloc();
+    addTearDown(bloc.close);
+    bloc.add(
+      SincronizarJuegoMultijugador(
+        JuegoState(
+          tablero: bloc.state.tablero,
+          fase: FaseTurno.seleccionandoAncla,
+          dado1: 1,
+          dado2: 2,
+        ),
+      ),
+    );
+    await bloc.stream.firstWhere(
+      (state) => state.fase == FaseTurno.seleccionandoAncla,
+    );
+    var saltos = 0;
+    Widget panel(int ronda) => MaterialApp(
+      home: Scaffold(
+        body: BlocProvider.value(
+          value: bloc,
+          child: PanelDados(ronda: ronda, onSkipTurn: () => saltos++),
+        ),
+      ),
+    );
+    await tester.pumpWidget(panel(1));
+    await tester.tap(find.text('Saltar Turno'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(panel(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-skip-turn')));
+    await tester.pumpAndSettle();
+    expect(saltos, 0);
+    expect(
+      find.text('La ronda cambió. Revisa el estado antes de continuar.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('avisa cuando solo uno de los dados puede ser ancla', (
     tester,
   ) async {

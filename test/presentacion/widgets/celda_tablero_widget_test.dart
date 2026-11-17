@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
@@ -41,6 +43,110 @@ Widget _celda(
 }
 
 void main() {
+  testWidgets('mapa 4 distingue las dos zonas rojas fragmentadas', (
+    tester,
+  ) async {
+    final cubit = ZonaInicialCubit(mapa: MapaTablero.mapa4);
+    final bloc = JuegoBloc(mapa: MapaTablero.mapa4);
+    addTearDown(cubit.close);
+    addTearDown(bloc.close);
+    const rombos = [
+      Posicion(1, 1),
+      Posicion(2, 0),
+      Posicion(2, 1),
+      Posicion(4, 0),
+      Posicion(4, 1),
+      Posicion(5, 1),
+    ];
+    const triangulos = [
+      Posicion(1, 5),
+      Posicion(2, 5),
+      Posicion(2, 6),
+      Posicion(4, 5),
+      Posicion(4, 6),
+      Posicion(5, 5),
+    ];
+
+    Future<void> mostrar({required bool conNumeros}) async {
+      await tester.pumpWidget(
+        _envolver(
+          cubit,
+          Wrap(
+            children: [
+              for (final posicion in [...rombos, ...triangulos])
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: _celda(
+                    posicion,
+                    mapa: MapaTablero.mapa4,
+                    casilla: conNumeros
+                        ? Casilla(
+                            fila: posicion.fila,
+                            columna: posicion.columna,
+                            valorActual: 1,
+                          )
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+          bloc: bloc,
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final posicion in rombos) {
+        expect(
+          find.byKey(
+            ValueKey('rombo-zona-${posicion.fila}-${posicion.columna}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            ValueKey('triangulo-zona-${posicion.fila}-${posicion.columna}'),
+          ),
+          findsNothing,
+        );
+      }
+      for (final posicion in triangulos) {
+        expect(
+          find.byKey(
+            ValueKey('triangulo-zona-${posicion.fila}-${posicion.columna}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            ValueKey('rombo-zona-${posicion.fila}-${posicion.columna}'),
+          ),
+          findsNothing,
+        );
+      }
+    }
+
+    await mostrar(conNumeros: false);
+    final triangulo = tester.widget<CustomPaint>(
+      find.byKey(const ValueKey('triangulo-zona-1-5')),
+    );
+    await tester.runAsync(() async {
+      final grabador = ui.PictureRecorder();
+      triangulo.painter!.paint(Canvas(grabador), triangulo.size);
+      final imagen = await grabador.endRecording().toImage(10, 10);
+      final pixeles = (await imagen.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      expect(pixeles.getUint8(3), 0);
+      expect(pixeles.getUint8((6 * 10 + 5) * 4 + 3), 255);
+      imagen.dispose();
+    });
+
+    cubit.restaurarDesdeServidor(valores: const {}, iniciada: true);
+    await mostrar(conNumeros: true);
+    expect(find.text('1'), findsNWidgets(12));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'el rombo de una zona fragmentada es visible sin número y con él',
     (tester) async {

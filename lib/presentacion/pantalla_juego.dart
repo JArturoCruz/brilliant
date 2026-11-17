@@ -359,11 +359,18 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     await _runRoomAction(pendingMove, isQueuedMove: true);
   }
 
-  Future<void> _skipTurn() async {
+  Future<void> _skipTurn(int round) async {
     final room = _room;
     if (room == null) return;
+    if (room.round != round) {
+      setState(
+        () => _remoteError =
+            'La ronda cambió. Revisa el estado antes de continuar.',
+      );
+      return;
+    }
     await _runRoomAction(
-      () => _multiplayerClient.skipRound(code: room.code, round: room.round),
+      () => _multiplayerClient.skipRound(code: room.code, round: round),
     );
   }
 
@@ -657,6 +664,9 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   }
 
   Widget _buildScaffold(BuildContext context) {
+    final explicacionZonas = widget.mapa.id == 4
+        ? 'Las zonas rojas separadas se distinguen con rombos ◆ y triángulos ▲.'
+        : 'Las casillas del mismo color con un rombo ◆ forman una sola zona.';
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -829,10 +839,10 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                   children: [
                                     const InstruccionZonaInicial(),
                                     TableroWidget(mapa: widget.mapa),
-                                    const Text(
-                                      'Las casillas del mismo color con un rombo ◆ forman una sola zona.',
+                                    Text(
+                                      explicacionZonas,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 11),
+                                      style: const TextStyle(fontSize: 11),
                                     ),
                                     const SizedBox(height: 8),
                                     PuntuacionesDisponiblesWidget(
@@ -902,10 +912,10 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                                               constraints.maxHeight -
                                               (_connectionLost ? 100 : 0),
                                         ),
-                                        const Text(
-                                          'Las casillas del mismo color con un rombo ◆ forman una sola zona.',
+                                        Text(
+                                          explicacionZonas,
                                           textAlign: TextAlign.center,
-                                          style: TextStyle(fontSize: 11),
+                                          style: const TextStyle(fontSize: 11),
                                         ),
                                       ],
                                     ),
@@ -1005,7 +1015,7 @@ class _PanelPartida extends StatelessWidget {
   final bool isBusy;
   final Future<void> Function(Map<Posicion, int>)? onStart;
   final VoidCallback? onConfirmMove;
-  final VoidCallback? onSkipTurn;
+  final ValueChanged<int>? onSkipTurn;
   final String? errorMessage;
   final bool mobile;
   final MapaTablero mapa;
@@ -1129,7 +1139,9 @@ class _PanelPartida extends StatelessWidget {
                   0;
               return PanelDados(
                 isEnabled: canPlayThisRound && !isBusy,
-                onSkipTurn: multiplayer ? onSkipTurn : null,
+                onSkipTurn: multiplayer && onSkipTurn != null
+                    ? () => onSkipTurn!(room!.round)
+                    : null,
                 onConfirmMove: multiplayer ? onConfirmMove : null,
                 waitingForRound: hasCompletedRound,
                 turnMessage: multiplayer
@@ -1138,6 +1150,7 @@ class _PanelPartida extends StatelessWidget {
                           : 'Ronda ${room!.round}: dados compartidos por todos')
                     : null,
                 skipTurnLabel: multiplayer ? 'Terminar mi ronda' : null,
+                ronda: multiplayer ? room?.round : null,
                 compact: mobile,
               );
             },

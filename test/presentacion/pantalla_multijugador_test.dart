@@ -8,6 +8,7 @@ import 'package:brilliant/bloc/juego_event.dart';
 import 'package:brilliant/bloc/juego_state.dart';
 import 'package:brilliant/dominio/mapa_tablero.dart';
 import 'package:brilliant/dominio/zona_inicial.dart';
+import 'package:brilliant/presentacion/pantalla_juego.dart';
 import 'package:brilliant/presentacion/pantalla_multijugador.dart';
 import 'package:brilliant/presentacion/seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'package:brilliant/presentacion/widgets/selector_numeros_zona_inicial.dart';
@@ -110,6 +111,90 @@ void main() {
       httpClient: MockClient(handler),
     ),
   );
+
+  testWidgets('confirms the current round before sending a multiplayer skip', (
+    tester,
+  ) async {
+    final board = List.generate(7, (_) => List<int?>.filled(7, null));
+    board[0][0] = 1;
+    var latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      board: board,
+      dice: [1, 2],
+      ready: true,
+    );
+    final skipRounds = <int>[];
+    final client = clientWith((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/ABC234')) {
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      if (request.method == 'POST' && request.url.path.endsWith('/skip')) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        skipRounds.add(body['round'] as int);
+        latestRoom = roomJson(
+          players: 2,
+          phase: 'playing',
+          revision: 3,
+          round: 2,
+          board: board,
+          dice: [1, 2],
+          ready: true,
+          playedPlayerId: user.id,
+        );
+        return http.Response(jsonEncode(latestRoom), 200);
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaJuego(
+          multiplayerClient: client,
+          multiplayerUser: user,
+          roomCode: 'ABC234',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final skip = find.text('Terminar mi ronda');
+    await tester.ensureVisible(skip);
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+    latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      revision: 2,
+      round: 2,
+      board: board,
+      dice: [1, 2],
+      ready: true,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-skip-turn')));
+    await tester.pumpAndSettle();
+    expect(skipRounds, isEmpty);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(skip);
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(skipRounds, isEmpty);
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-skip-turn')));
+    await tester.pumpAndSettle();
+    expect(skipRounds, [2]);
+    expect(
+      find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('updates the map preview when selecting a map', (tester) async {
     final client = clientWith((request) async {

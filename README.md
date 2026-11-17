@@ -103,6 +103,11 @@ For web, add the exact origin of the page, including its port, to
 HTTPS or localhost, not a plain HTTP page served from a LAN IP. Browser local
 network permission and security restrictions can also affect access.
 
+## Zonas del mapa 4
+
+En el mapa 4, los rombos ◆ identifican la zona roja izquierda y los
+triángulos ▲ la zona roja derecha; cada símbolo une sus partes separadas.
+
 ## Multiplayer
 
 Sign in and choose **Multijugador** from the start screen. Create a room or
@@ -124,7 +129,8 @@ instance.
 Each player configures and plays on a separate board using the original game
 interface and map rules. Everyone plays each round with the same pair of dice
 at the same time; the next pair is rolled only after all players complete or
-skip that round. The server validates every move and shares the current boards
+skip that round. Skipping a round requires confirmation before submitting it.
+The server validates every move and shares the current boards
 with the authenticated members of the room; players can inspect opponents'
 boards during the game and everyone's final board in the results. Only completed
 regions award points. Scores and region rewards are updated once every active

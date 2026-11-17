@@ -44,6 +44,7 @@ class CeldaTableroWidget extends StatelessWidget {
         ? regionColor
         : Color.lerp(regionColor, TemaMesa.papel, 0.16)!;
     final fragmentada = region != null && mapa.regionEstaFragmentada(region);
+    final triangulo = mapa.id == 4 && region == RegionTablero.roja2;
 
     final esInicial = state.valores.containsKey(posicion);
     final seleccionada = state.seleccionada == posicion;
@@ -211,23 +212,38 @@ class CeldaTableroWidget extends StatelessWidget {
                       Positioned(
                         top: 3,
                         left: 3,
-                        child: Transform.rotate(
-                          key: ValueKey(
-                            'rombo-zona-${posicion.fila}-${posicion.columna}',
-                          ),
-                          angle: math.pi / 4,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: Color.lerp(color, Colors.black, 0.5),
-                              border: Border.all(
-                                color: Color.lerp(color, Colors.white, 0.4)!,
-                                width: 1,
+                        child: triangulo
+                            ? CustomPaint(
+                                key: ValueKey(
+                                  'triangulo-zona-${posicion.fila}-${posicion.columna}',
+                                ),
+                                size: const Size(10, 10),
+                                painter: _PintorTriangulo(
+                                  Color.lerp(color, Colors.black, 0.5)!,
+                                  Color.lerp(color, Colors.white, 0.4)!,
+                                ),
+                              )
+                            : Transform.rotate(
+                                key: ValueKey(
+                                  'rombo-zona-${posicion.fila}-${posicion.columna}',
+                                ),
+                                angle: math.pi / 4,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Color.lerp(color, Colors.black, 0.5),
+                                    border: Border.all(
+                                      color: Color.lerp(
+                                        color,
+                                        Colors.white,
+                                        0.4,
+                                      )!,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
                       ),
                   ],
                 ),
@@ -245,4 +261,32 @@ class CeldaTableroWidget extends StatelessWidget {
       child: Text(s, style: TemaMesa.numeroTablero.copyWith(fontSize: 30)),
     ),
   );
+}
+
+class _PintorTriangulo extends CustomPainter {
+  const _PintorTriangulo(this.color, this.borde);
+
+  final Color color;
+  final Color borde;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, 0.5)
+      ..lineTo(size.width - 0.5, size.height - 0.5)
+      ..lineTo(0.5, size.height - 0.5)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = borde
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PintorTriangulo anterior) =>
+      anterior.color != color || anterior.borde != borde;
 }

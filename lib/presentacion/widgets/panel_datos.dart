@@ -16,6 +16,7 @@ class PanelDados extends StatelessWidget {
     this.turnMessage,
     this.waitingForRound = false,
     this.skipTurnLabel,
+    this.ronda,
     this.compact = false,
   });
 
@@ -26,7 +27,57 @@ class PanelDados extends StatelessWidget {
   final String? turnMessage;
   final bool waitingForRound;
   final String? skipTurnLabel;
+  final int? ronda;
   final bool compact;
+
+  Future<void> _confirmarSaltarTurno(BuildContext context) async {
+    final bloc = context.read<JuegoBloc>();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Terminar la ronda'),
+        content: const Text(
+          'No colocarás ningún número en esta ronda. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('confirm-skip-turn'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !context.mounted) return;
+
+    final panel = context.findAncestorWidgetOfExactType<PanelDados>();
+    final fase = bloc.state.fase;
+    if (panel == null ||
+        !panel.isEnabled ||
+        panel.ronda != ronda ||
+        (fase != FaseTurno.seleccionandoAncla &&
+            fase != FaseTurno.seleccionandoCasilla &&
+            fase != FaseTurno.colocandoNumero)) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La ronda cambió. Revisa el estado antes de continuar.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (onSkipTurn != null) {
+      onSkipTurn!();
+    } else {
+      bloc.add(SaltarTurno());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,8 +209,7 @@ class PanelDados extends StatelessWidget {
             if (permitirCambioDado)
               TextButton.icon(
                 onPressed: isEnabled
-                    ? onSkipTurn ??
-                          () => context.read<JuegoBloc>().add(SaltarTurno())
+                    ? () => _confirmarSaltarTurno(context)
                     : null,
                 icon: const Icon(Icons.skip_next, size: 18),
                 label: Text(skipTurnLabel ?? 'Saltar Turno'),
