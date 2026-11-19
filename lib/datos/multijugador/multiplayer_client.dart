@@ -88,6 +88,7 @@ class RoomPlayer {
     required this.forfeited,
     required this.isWinner,
     required this.ready,
+    this.lobbyReady = false,
     required this.playedThisRound,
     this.noLegalMove = false,
     this.board,
@@ -101,6 +102,7 @@ class RoomPlayer {
   final bool forfeited;
   final bool isWinner;
   final bool ready;
+  final bool lobbyReady;
   final bool playedThisRound;
   final bool noLegalMove;
   final List<List<int?>>? board;
@@ -114,6 +116,7 @@ class RoomPlayer {
     forfeited: json['forfeited'] == true,
     isWinner: json['isWinner'] == true,
     ready: json['ready'] == true,
+    lobbyReady: json['lobbyReady'] == true,
     playedThisRound: json['playedThisRound'] == true,
     noLegalMove: json['noLegalMove'] == true,
     board: json['board'] == null ? null : _board(json['board']),
@@ -274,6 +277,27 @@ class MultiplayerClient {
     await _request(
       'POST',
       '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/start',
+    ),
+  );
+
+  Future<RoomSnapshot> setReady(String code, bool ready) async =>
+      RoomSnapshot.fromJson(
+        await _request(
+          'POST',
+          '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/ready',
+          body: {'ready': ready},
+        ),
+      );
+
+  Future<RoomSnapshot> removePlayer(
+    String code,
+    String playerId, {
+    required bool block,
+  }) async => RoomSnapshot.fromJson(
+    await _request(
+      'POST',
+      '/api/multiplayer/rooms/${Uri.encodeComponent(code)}/remove-player',
+      body: {'playerId': playerId, 'block': block},
     ),
   );
 

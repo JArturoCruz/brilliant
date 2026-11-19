@@ -58,8 +58,8 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     if (_isPolling || !mounted) return;
     _isPolling = true;
     var refreshLobbyAfterDissolution = false;
+    final room = _room;
     try {
-      final room = _room;
       if (room == null) {
         final pendingLeaveRoomCode = _pendingLeaveRoomCode;
         if (pendingLeaveRoomCode != null) {
@@ -71,11 +71,13 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
             }
           } on MultiplayerApiException catch (error) {
             if (error.code == 'ROOM_DISSOLVED' ||
-                error.code == 'ROOM_NOT_FOUND') {
+                error.code == 'ROOM_NOT_FOUND' ||
+                error.code == 'ROOM_KICKED' ||
+                error.code == 'ROOM_BLOCKED') {
               _pendingLeaveRoomCode = null;
               if (mounted) setState(() => _notice = error.message);
             } else if (error.isConnectionFailure) {
-              if (mounted) {
+              if (mounted && _room == null) {
                 setState(
                   () => _connectionMessage = 'Se perdió la conexión con el servidor. Tu salida está pendiente; se volverá a intentar automáticamente.',
                 );
@@ -87,7 +89,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
           }
         }
         final lobby = await _client.lobby();
-        if (mounted) {
+        if (mounted && identical(_room, room)) {
           setState(() {
             _lobby = lobby;
             _isLoading = false;
@@ -110,6 +112,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
         }
       }
     } on MultiplayerApiException catch (error) {
+      if (room != null && !identical(_room, room)) return;
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -118,7 +121,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
               ? 'Se perdió la conexión con el servidor. Puedes esperar a que vuelva o salir de la sala. Se reintentará automáticamente.'
               : null;
           if (error.code == 'ROOM_DISSOLVED' ||
-              error.code == 'ROOM_NOT_FOUND') {
+              error.code == 'ROOM_NOT_FOUND' ||
+              error.code == 'ROOM_KICKED' ||
+              error.code == 'ROOM_BLOCKED') {
             _room = null;
             _pendingLeaveRoomCode = null;
             _anchor = null;
@@ -139,6 +144,7 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
 
   Future<void> _runRoomAction(Future<RoomSnapshot> Function() action) async {
     if (_isBusy) return;
+    final previousRoom = _room;
     setState(() {
       _isBusy = true;
       _error = null;
@@ -147,6 +153,10 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     try {
       final room = await action();
       if (mounted) {
+        if (previousRoom != null && _room?.code != previousRoom.code) return;
+        if (_room?.code == room.code && _room!.revision > room.revision) {
+          return;
+        }
         setState(() {
           _room = room;
           _anchor = null;
@@ -164,7 +174,12 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                 'Conexión interrumpida. Reintentando automáticamente.';
           }
         });
-        if (error.code == 'STALE_ROUND') await _refresh();
+        if (error.code == 'STALE_ROUND' ||
+            error.code == 'ROOM_NOT_FOUND' ||
+            error.code == 'ROOM_KICKED' ||
+            error.code == 'ROOM_BLOCKED') {
+          await _refresh();
+        }
       }
     } finally {
       if (mounted) setState(() => _isBusy = false);
@@ -190,6 +205,47 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
     final room = _room;
     if (room == null) return;
     await _runRoomAction(() => _client.startRoom(room.code));
+  }
+
+  Future<void> _setReady(bool ready) async {
+    final room = _room;
+    if (room == null) return;
+    await _runRoomAction(() => _client.setReady(room.code, ready));
+  }
+
+  Future<void> _removePlayer(RoomPlayer player) async {
+    final room = _room;
+    if (room == null || _isBusy) return;
+    final block = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Expulsar a ${player.name}'),
+        content: const Text(
+          'Puedes expulsar al jugador o bloquearlo de esta sala. '
+          'La tercera expulsión también lo bloqueará automáticamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            key: const Key('kick-player-only'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Solo expulsar'),
+          ),
+          FilledButton(
+            key: const Key('block-player'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Bloquear de la sala'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || block == null || _room?.code != room.code) return;
+    await _runRoomAction(
+      () => _client.removePlayer(room.code, player.id, block: block),
+    );
   }
 
   void _openGameIfStarted(RoomSnapshot room) {
@@ -543,6 +599,9 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
       }
     }
     final canPlayThisRound = myPlayer?.playedThisRound == false;
+    final allReady =
+        room.players.length >= 2 &&
+        room.players.every((player) => player.lobbyReady && player.connected);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -582,6 +641,8 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
               [
                 if (player.isHost) 'Anfitrión',
                 if (!player.connected) 'Desconectado',
+                if (room.phase == 'waiting')
+                  player.lobbyReady ? 'Listo' : 'No está listo',
                 if (player.forfeited) 'Concedió',
                 if (room.phase != 'waiting') '${player.score} puntos',
                 if (room.phase == 'playing' && player.playedThisRound)
@@ -589,7 +650,14 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
                 if (player.isWinner) 'Ganador',
               ].join(' · '),
             ),
-            trailing: player.isWinner
+            trailing: room.phase == 'waiting' && isHost && !player.isHost
+                ? IconButton(
+                    key: Key('remove-player-${player.id}'),
+                    tooltip: 'Expulsar a ${player.name}',
+                    onPressed: _isBusy ? null : () => _removePlayer(player),
+                    icon: const Icon(Icons.person_remove_outlined),
+                  )
+                : player.isWinner
                 ? const Icon(Icons.emoji_events, color: Colors.amber)
                 : null,
           ),
@@ -598,15 +666,32 @@ class _PantallaMultijugadorState extends State<PantallaMultijugador> {
           const SizedBox(height: 12),
           Text(
             isHost
-                ? 'Comparte el código para invitar. Puedes iniciar con 2 a 6 jugadores.'
-                : 'Espera a que el anfitrión inicie la partida.',
+                ? 'Comparte el código para invitar. Todos deben estar listos para iniciar.'
+                : 'Marca que estás listo y espera a que el anfitrión inicie la partida.',
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('toggle-room-ready'),
+            onPressed: _isBusy || myPlayer == null
+                ? null
+                : () => _setReady(!myPlayer!.lobbyReady),
+            icon: Icon(
+              myPlayer?.lobbyReady == true
+                  ? Icons.undo
+                  : Icons.check_circle_outline,
+            ),
+            label: Text(
+              myPlayer?.lobbyReady == true
+                  ? 'Ya no estoy listo'
+                  : 'Estoy listo',
+            ),
           ),
           if (isHost) ...[
             const SizedBox(height: 12),
             FilledButton.icon(
               key: const Key('start-multiplayer-game'),
-              onPressed: _isBusy || room.players.length < 2 ? null : _startRoom,
+              onPressed: _isBusy || !allReady ? null : _startRoom,
               icon: const Icon(Icons.play_arrow),
               label: const Text('Iniciar partida'),
             ),

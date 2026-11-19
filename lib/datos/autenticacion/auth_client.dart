@@ -227,6 +227,18 @@ class AuthClient implements AuthGateway {
   static bool _isLoopbackHost(String host) =>
       host == 'localhost' || host == '127.0.0.1' || host == '::1';
 
+  static void _addNgrokHeader(http.Request request) {
+    final host = request.url.host.toLowerCase();
+    if (const [
+      '.ngrok-free.app',
+      '.ngrok-free.dev',
+      '.ngrok.app',
+      '.ngrok.io',
+    ].any(host.endsWith)) {
+      request.headers['ngrok-skip-browser-warning'] = 'true';
+    }
+  }
+
   String get baseUrl => _baseUrl;
 
   Future<void> restoreServer() async {
@@ -278,6 +290,7 @@ class AuthClient implements AuthGateway {
     try {
       final request = http.Request('GET', Uri.parse('$url/health'))
         ..followRedirects = false;
+      _addNgrokHeader(request);
       final response = await http.Response.fromStream(
         await _httpClient.send(request).timeout(const Duration(seconds: 5)),
       ).timeout(const Duration(seconds: 5));
@@ -446,6 +459,7 @@ class AuthClient implements AuthGateway {
       ..followRedirects = false
       ..headers['accept'] = 'application/json'
       ..headers['x-request-id'] = requestId;
+    _addNgrokHeader(request);
     if (body != null) {
       request.headers['content-type'] = 'application/json';
       request.body = jsonEncode(body);
@@ -553,10 +567,15 @@ class AuthClient implements AuthGateway {
         'INVALID_SCORE_POSITION',
         'ROOM_NOT_FOUND',
         'ROOM_DISSOLVED',
+        'ROOM_KICKED',
+        'ROOM_BLOCKED',
         'ROOM_FULL',
         'HOST_ONLY',
+        'INVALID_TARGET',
+        'PLAYER_NOT_FOUND',
         'ROOM_ALREADY_STARTED',
         'NOT_ENOUGH_PLAYERS',
+        'PLAYERS_NOT_READY',
         'PLAYER_RECONNECTING',
         'GAME_NOT_IN_SETUP',
         'INVALID_INITIAL_BOARD',

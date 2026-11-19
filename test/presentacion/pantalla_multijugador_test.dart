@@ -49,6 +49,7 @@ void main() {
     String? playedPlayerId,
     Map<String, int>? regionCounters,
     bool ready = false,
+    Set<String> lobbyReadyIds = const {},
     List<int> scores = const [],
     List<String> winners = const [],
     String? finishReason,
@@ -71,6 +72,7 @@ void main() {
             (index == 0 && currentPlayerForfeited) || forfeitedIds.contains(id),
         'isWinner': winners.contains(id),
         'ready': ready,
+        'lobbyReady': lobbyReadyIds.contains(id),
         'playedThisRound': id == playedPlayerId,
         'board': playerBoards[id],
       };
@@ -294,6 +296,135 @@ void main() {
     expect(find.textContaining('Jugador Dos'), findsOneWidget);
     expect(find.byKey(const Key('start-multiplayer-game')), findsOneWidget);
     expect(requests, contains('POST /api/multiplayer/rooms/ABC234/join'));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'host can toggle readiness and start only when everyone is ready',
+    (tester) async {
+      final readyIds = <String>{};
+      var started = false;
+      final client = clientWith((request) async {
+        if (request.url.path.endsWith('/lobby')) {
+          return http.Response(jsonEncode(lobbyJson()), 200);
+        }
+        if (request.url.path.endsWith('/ready')) {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          if (body['ready'] == true) {
+            readyIds.add('player-1');
+          } else {
+            readyIds.remove('player-1');
+          }
+        }
+        if (request.url.path.endsWith('/start')) started = true;
+        return http.Response(
+          jsonEncode(roomJson(players: 2, lobbyReadyIds: readyIds)),
+          200,
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PantallaMultijugador(user: user, client: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-multiplayer-room')));
+      await tester.pumpAndSettle();
+      final start = find.byKey(const Key('start-multiplayer-game'));
+      expect(tester.widget<FilledButton>(start).onPressed, isNull);
+      await tester.ensureVisible(find.byKey(const Key('toggle-room-ready')));
+      await tester.tap(find.byKey(const Key('toggle-room-ready')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ya no estoy listo'), findsOneWidget);
+      expect(tester.widget<FilledButton>(start).onPressed, isNull);
+      readyIds.add('player-2');
+      await tester.tap(find.byTooltip('Actualizar'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      await tester.ensureVisible(start);
+      await tester.tap(start);
+      await tester.pumpAndSettle();
+      expect(started, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('host can cancel, expel or block a player', (tester) async {
+    final actions = <Map<String, dynamic>>[];
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.url.path.endsWith('/remove-player')) {
+        actions.add(jsonDecode(request.body) as Map<String, dynamic>);
+      }
+      return http.Response(jsonEncode(roomJson(players: 2)), 200);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create-multiplayer-room')));
+    await tester.pumpAndSettle();
+    final remove = find.byKey(const Key('remove-player-player-2'));
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(actions, isEmpty);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kick-player-only')));
+    await tester.pumpAndSettle();
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('block-player')));
+    await tester.pumpAndSettle();
+    expect(actions, [
+      {'playerId': 'player-2', 'block': false},
+      {'playerId': 'player-2', 'block': true},
+    ]);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('an expelled player returns to the lobby with a notice', (
+    tester,
+  ) async {
+    final client = clientWith((request) async {
+      if (request.url.path.endsWith('/lobby')) {
+        return http.Response(jsonEncode(lobbyJson()), 200);
+      }
+      if (request.url.path.endsWith('/join')) {
+        return http.Response(jsonEncode(roomJson(players: 2)), 200);
+      }
+      return http.Response(
+        jsonEncode({
+          'code': 'ROOM_KICKED',
+          'message': 'El anfitrión te expulsó de esta sala.',
+        }),
+        403,
+      );
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaMultijugador(user: user, client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('invite-code-input')),
+      'ABC234',
+    );
+    await tester.tap(find.byKey(const Key('join-room-by-code')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(find.textContaining('El anfitrión te expulsó'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -530,7 +661,12 @@ void main() {
         return http.Response(jsonEncode(lobbyJson()), 200);
       }
       if (request.method == 'POST' && request.url.path.endsWith('/rooms')) {
-        return http.Response(jsonEncode(roomJson(players: 2)), 201);
+        return http.Response(
+          jsonEncode(
+            roomJson(players: 2, lobbyReadyIds: {'player-1', 'player-2'}),
+          ),
+          201,
+        );
       }
       if (request.url.path.endsWith('/start')) {
         latestRoom = roomJson(players: 2, phase: 'setup', revision: 2);

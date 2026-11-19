@@ -36,6 +36,26 @@ void main() {
     'email': 'player@example.com',
   };
 
+  test('evita el aviso de ngrok al comprobar y usar el servidor', () async {
+    final client = AuthClient(
+      baseUrl: '',
+      tokenStore: MemoryTokenStore()..token = 'token',
+      serverStore: MemoryServerStore(),
+      httpClient: MockClient((request) async {
+        expect(request.headers['ngrok-skip-browser-warning'], 'true');
+        if (request.url.path == '/health') {
+          return http.Response('{"status":"ok","service":"brilliant"}', 200);
+        }
+        return http.Response(
+          jsonEncode({'user': user, 'token': 'new-token'}),
+          200,
+        );
+      }),
+    );
+    await client.selectServer('https://brilliant.ngrok-free.app');
+    await client.signIn(name: 'Player One', password: '001234');
+  });
+
   test(
     'selecciona y recuerda un servidor sin enviarle el token anterior',
     () async {

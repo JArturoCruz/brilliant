@@ -51,6 +51,28 @@ no puede configurar automáticamente el firewall, NAT, DNS ni los certificados.
 Consulta la configuración y las restricciones del navegador en el README del
 servidor.
 
+## Compartir la aplicación web con ngrok
+
+Para una prueba pública, compila la aplicación con el dominio asignado por
+ngrok, sustituyendo el ejemplo por el dominio propio:
+
+```powershell
+cd C:\brilliant\brilliant
+flutter build web --release --csp --no-web-resources-cdn --dart-define=BRILLIANT_API_URL=https://tu-dominio.ngrok-free.dev
+```
+
+Inicia el servidor y el agente como se indica en el README del servidor.
+Comparte la URL HTTPS de ngrok: desde ella se cargan tanto el juego como la API.
+La aplicación intenta conectar con la URL compilada, aunque una dirección
+guardada previamente en el navegador tiene prioridad y puede cambiarse en
+la pantalla inicial.
+
+En el plan gratuito puede aparecer una advertencia de ngrok; pulsa
+**Visit Site** para continuar. La computadora anfitriona, el servidor y el
+agente deben permanecer encendidos. Reiniciar el servidor elimina las partidas
+en curso. Los PIN de seis dígitos son débiles y los límites por IP requieren
+configuración fiable del proxy: no uses cuentas sensibles para esta prueba.
+
 To build a debug APK for a physical Android phone on the same private Wi-Fi:
 
 ```powershell
@@ -112,7 +134,12 @@ triángulos ▲ la zona roja derecha; cada símbolo une sus partes separadas.
 ## Multiplayer
 
 Sign in and choose **Multijugador** from the start screen. Create a room or
-enter an invitation code; the host starts when 2–6 players are connected. The
+enter an invitation code. Every player, including the host, must mark themselves
+ready; the host can then start when 2–6 players are connected. Before starting,
+the host can expel a player or block them from that room. A third expulsion
+automatically blocks that account from rejoining the room. A player can cancel
+their ready status before the game starts. Blocks last for that room's lifetime.
+The
 host selects the board map. Room state, dice, legal moves, scores, and the win
 condition are validated by the authenticated server. Players can leave at any
 time. If the host leaves before or during initial setup, the room closes and
