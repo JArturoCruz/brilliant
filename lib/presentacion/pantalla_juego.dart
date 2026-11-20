@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_event.dart';
@@ -19,7 +20,6 @@ import '../bloc/zona_inicial_cubit.dart';
 import '../dominio/tablero.dart';
 import '../dominio/zona_inicial.dart';
 import 'mensajes/mensajes_zona_inicial_listener.dart';
-import 'multijugador/sonido_zona_rival.dart';
 import 'seleccion_mapa/widgets/vista_previa_mapa.dart';
 import 'teclado/atajos_teclado_zona_inicial.dart';
 import 'widgets/boton_inicio.dart';
@@ -39,6 +39,7 @@ class PantallaJuego extends StatefulWidget {
     this.roomCode,
     this.onRoomLeft,
     this.onRoomLeftOffline,
+    this.reproducirSonido,
   });
 
   final MapaTablero mapa;
@@ -47,6 +48,7 @@ class PantallaJuego extends StatefulWidget {
   final String? roomCode;
   final ValueChanged<String>? onRoomLeft;
   final VoidCallback? onRoomLeftOffline;
+  final Future<void> Function(SonidoJuego)? reproducirSonido;
 
   @override
   State<PantallaJuego> createState() => _PantallaJuegoState();
@@ -69,8 +71,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   bool _resultsDialogShown = false;
   bool _victorySoundPlayed = false;
   final Set<String> _seenRoomEvents = {};
-  final Map<int, List<RoomEvent>> _pendingCompletions = {};
-  bool _roomEventsInitialized = false;
+  final Queue<String> _completionNotices = Queue();
   String? _completionNotice;
   Timer? _noticeTimer;
   int? _lastSynchronizedRevision;
@@ -84,6 +85,12 @@ class _PantallaJuegoState extends State<PantallaJuego> {
 
   MultiplayerClient get _multiplayerClient => widget.multiplayerClient!;
   AuthUser get _multiplayerUser => widget.multiplayerUser!;
+
+  void _reproducir(SonidoJuego sonido) {
+    unawaited(
+      (widget.reproducirSonido ?? AudioJuego.instancia.reproducir)(sonido),
+    );
+  }
 
   @override
   void initState() {
@@ -104,7 +111,6 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     _pollTimer?.cancel();
     _noticeTimer?.cancel();
     _roomNotifier.dispose();
-    unawaited(AudioJuego.instancia.detenerMusica());
     super.dispose();
   }
 
@@ -118,12 +124,12 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                 actual.historial.isNotEmpty &&
                 actual.historial.first.startsWith('🎲 Dados tirados:')));
     if (nuevaTirada) {
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.dados));
+      _reproducir(SonidoJuego.dados);
     }
 
     if (anterior.fase == FaseTurno.seleccionandoCasilla &&
         actual.fase == FaseTurno.colocandoNumero) {
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.ancla));
+      _reproducir(SonidoJuego.ancla);
     }
 
     final casillasAnteriores = anterior.tablero
@@ -135,7 +141,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
         .where((casilla) => casilla.valorActual != null)
         .length;
     if (casillasAnteriores >= 6 && casillasActuales > casillasAnteriores) {
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.numero));
+      _reproducir(SonidoJuego.numero);
     }
 
     final zonasCompletadas = actual.contadorCompletadasPorRegion.entries.fold(
@@ -146,14 +152,14 @@ class _PantallaJuegoState extends State<PantallaJuego> {
           (anterior.contadorCompletadasPorRegion[entrada.key] ?? 0),
     );
     for (var zona = 0; !_isMultiplayer && zona < zonasCompletadas; zona++) {
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
+      _reproducir(SonidoJuego.zonaCompleta);
     }
 
     if (!anterior.tableroCompleto &&
         actual.tableroCompleto &&
         !_victorySoundPlayed) {
       _victorySoundPlayed = true;
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.victoria));
+      _reproducir(SonidoJuego.victoria);
     }
   }
 
@@ -418,45 +424,34 @@ class _PantallaJuegoState extends State<PantallaJuego> {
   }
 
   void _handleRoomEvents(RoomSnapshot room) {
-    final incoming = room.events
-        .where((event) => _seenRoomEvents.add(event.id))
-        .toList();
-    if (!_roomEventsInitialized) {
-      _roomEventsInitialized = true;
-      for (final event in incoming) {
-        if (event.playerId == _multiplayerUser.id &&
-            event.region != null &&
-            event.round == room.round) {
-          _pendingCompletions.putIfAbsent(event.round!, () => []).add(event);
-        }
-      }
-      return;
-    }
-    for (final event in incoming) {
+    for (final event in room.events) {
+      if (!_seenRoomEvents.add(event.id)) continue;
       if (event.playerId == null ||
           event.region == null ||
           event.round == null) {
         continue;
       }
-      _pendingCompletions.putIfAbsent(event.round!, () => []).add(event);
       if (event.playerId == _multiplayerUser.id) {
-        unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaCompleta));
+        _reproducir(SonidoJuego.zonaCompleta);
       } else {
-        _noticeTimer?.cancel();
-        _completionNotice = event.message;
-        _noticeTimer = Timer(const Duration(seconds: 5), () {
-          if (mounted) setState(() => _completionNotice = null);
-        });
+        _reproducir(SonidoJuego.zonaRival);
+        _completionNotices.add(event.message);
       }
     }
-    final settled = _pendingCompletions.keys
-        .where((round) => round < room.round || room.phase == 'finished')
-        .toList();
-    for (final round in settled) {
-      final events = _pendingCompletions.remove(round)!;
-      if (debeSonarZonaRival(events, _multiplayerUser.id)) {
-        unawaited(AudioJuego.instancia.reproducir(SonidoJuego.zonaRival));
-      }
+    if (_completionNotice == null && _completionNotices.isNotEmpty) {
+      _mostrarSiguienteAviso();
+    }
+  }
+
+  void _mostrarSiguienteAviso() {
+    _noticeTimer?.cancel();
+    _completionNotice = _completionNotices.isEmpty
+        ? null
+        : _completionNotices.removeFirst();
+    if (_completionNotice != null) {
+      _noticeTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(_mostrarSiguienteAviso);
+      });
     }
   }
 
@@ -595,7 +590,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
     if (room.phase != 'finished' || !mounted) return;
     if (room.winners.isNotEmpty && !_victorySoundPlayed) {
       _victorySoundPlayed = true;
-      unawaited(AudioJuego.instancia.reproducir(SonidoJuego.victoria));
+      _reproducir(SonidoJuego.victoria);
     }
     if (_resultsDialogShown) return;
     _resultsDialogShown = true;
@@ -780,6 +775,23 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       body: SafeArea(
         child: Column(
           children: [
+            AnimatedBuilder(
+              animation: AudioJuego.instancia,
+              builder: (context, _) {
+                final error = AudioJuego.instancia.error;
+                if (error == null) return const SizedBox.shrink();
+                return MaterialBanner(
+                  content: Text(error),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          unawaited(AudioJuego.instancia.reintentar()),
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                );
+              },
+            ),
             if (_completionNotice != null)
               Container(
                 key: const Key('rival-zone-notice'),
@@ -809,7 +821,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Cerrar aviso',
-                      onPressed: () => setState(() => _completionNotice = null),
+                      onPressed: () => setState(_mostrarSiguienteAviso),
                       icon: const Icon(Icons.close, size: 18),
                     ),
                   ],
@@ -1145,7 +1157,9 @@ class _PanelPartida extends StatelessWidget {
                 onConfirmMove: multiplayer ? onConfirmMove : null,
                 waitingForRound: hasCompletedRound,
                 turnMessage: multiplayer
-                    ? (hasCompletedRound
+                    ? (room?.roundSettled == true
+                          ? 'Ronda ${room!.round} terminada. Mostrando puntuaciones antes de la siguiente tirada…'
+                          : hasCompletedRound
                           ? 'Ronda completada ($completedPlayers/$activePlayers). Esperando a los demás jugadores…'
                           : 'Ronda ${room!.round}: dados compartidos por todos')
                     : null,
@@ -1264,6 +1278,20 @@ class _PartidaFinalizadaDialog extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               _TablerosJugadores(room: room, mapa: mapa),
+              if (room.events.any((event) => event.region != null)) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Zonas completadas',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                for (final event in room.events.where(
+                  (event) => event.region != null,
+                ))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(event.message),
+                  ),
+              ],
             ],
           ),
         ),

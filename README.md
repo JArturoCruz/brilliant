@@ -161,16 +161,24 @@ skip that round. Skipping a round requires confirmation before submitting it.
 The server validates every move and shares the current boards
 with the authenticated members of the room; players can inspect opponents'
 boards during the game and everyone's final board in the results. Only completed
-regions award points. Scores and region rewards are updated once every active
-player has played or skipped the round. Players who complete the same region in
-that round share the reward; the next reward remains for a later round. Claimed
-rewards remain unavailable if a player concedes.
+regions award points. Moves update the boards immediately, but scores, region
+rewards, notifications, and sounds update only when everyone finishes the
+round. Players who complete the same region in that round share the reward;
+the next reward remains for a later round. After a short results pause, the
+next round starts automatically. A confirmed completion is still awarded if
+its player leaves before settlement; claimed rewards remain unavailable.
 Board numbers are white with a fine dark outline, and white regions use light
 gray. Playable anchors and destinations are highlighted in yellow and green
 with contrasting borders.
-At the end of a round, a rival completion plays a sad brass sound only for
-players who did not score points for any region in that round. Completing a
-region after all of its rewards are claimed does not count as scoring.
+Every rival region completion shows an alert and plays a sound, including
+shared completions and later rewards; your own completion plays the celebration
+sound. Simultaneous alerts and sounds are queued so they do not overwrite or
+cut one another off. Alerts show the remaining reward for later rounds, while
+players completing the same region in the current round share its reward.
+The game retains completion events for the room's lifetime so a reconnecting
+player can receive missed alerts. There is no background music; game effects
+can be muted with the audio button;
+if playback fails, the button indicates the error and lets the player retry.
 When no player can use either die, the game waits briefly and rolls the next
 round if some future roll can still be played.
 

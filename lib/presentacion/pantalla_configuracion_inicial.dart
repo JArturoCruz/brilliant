@@ -1,8 +1,5 @@
-import 'dart:async';
-
 import 'package:brilliant/bloc/juego_bloc.dart';
 import 'package:brilliant/bloc/juego_state.dart';
-import 'package:brilliant/datos/audio_juego.dart';
 import 'package:brilliant/presentacion/widgets/panel_datos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,12 +25,6 @@ class PantallaConfiguracionInicial extends StatefulWidget {
 class _PantallaConfiguracionInicialState
     extends State<PantallaConfiguracionInicial> {
   final TableroJuego tablero = TableroJuego();
-
-  @override
-  void dispose() {
-    unawaited(AudioJuego.instancia.detenerMusica());
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {

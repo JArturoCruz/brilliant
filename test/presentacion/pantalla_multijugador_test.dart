@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:brilliant/datos/autenticacion/auth_client.dart';
+import 'package:brilliant/datos/audio_juego.dart';
 import 'package:brilliant/datos/multijugador/multiplayer_client.dart';
 import 'package:brilliant/bloc/zona_inicial_cubit.dart';
 import 'package:brilliant/bloc/juego_bloc.dart';
@@ -47,6 +48,7 @@ void main() {
     List<List<int?>>? board,
     List<int>? dice,
     String? playedPlayerId,
+    bool roundSettled = false,
     Map<String, int>? regionCounters,
     bool ready = false,
     Set<String> lobbyReadyIds = const {},
@@ -94,6 +96,7 @@ void main() {
           },
         ],
     'regionCounters': regionCounters ?? <String, int>{},
+    'roundSettled': roundSettled,
   };
 
   Map<String, dynamic> lobbyJson() => {
@@ -194,6 +197,95 @@ void main() {
     expect(
       find.text('Ronda completada (1/2). Esperando a los demás jugadores…'),
       findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('muestra la espera y después los resultados de la ronda', (
+    tester,
+  ) async {
+    final sonidos = <SonidoJuego>[];
+    var latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      ready: true,
+      dice: [1, 2],
+      playedPlayerId: user.id,
+    );
+    final client = clientWith(
+      (request) async => http.Response(jsonEncode(latestRoom), 200),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PantallaJuego(
+          multiplayerClient: client,
+          multiplayerUser: user,
+          roomCode: 'ABC234',
+          reproducirSonido: (sonido) async => sonidos.add(sonido),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bloc = tester.element(find.byType(TableroWidget)).read<JuegoBloc>();
+    expect(
+      find.textContaining('Esperando a los demás jugadores'),
+      findsOneWidget,
+    );
+    expect(bloc.state.puntuacionTotal, 0);
+    expect(
+      sonidos.where((sonido) => sonido == SonidoJuego.zonaCompleta),
+      isEmpty,
+    );
+
+    latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      revision: 2,
+      ready: true,
+      dice: [1, 2],
+      playedPlayerId: user.id,
+      roundSettled: true,
+      scores: [8, 0],
+      regionCounters: {'azul1': 1},
+      events: [
+        {
+          'id': 'completed',
+          'message': 'Jugador Uno completó azul1: 8 puntos.',
+          'playerId': user.id,
+          'region': 'azul1',
+          'round': 1,
+          'points': 8,
+        },
+      ],
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Mostrando puntuaciones'), findsOneWidget);
+    expect(bloc.state.puntuacionTotal, 8);
+    expect(bloc.state.contadorCompletadasPorRegion['azul1'], 1);
+    expect(
+      sonidos.where((sonido) => sonido == SonidoJuego.zonaCompleta).length,
+      1,
+    );
+
+    latestRoom = roomJson(
+      players: 2,
+      phase: 'playing',
+      revision: 3,
+      round: 2,
+      ready: true,
+      dice: [3, 4],
+      scores: [8, 0],
+      regionCounters: {'azul1': 1},
+      events: latestRoom['events'] as List<Map<String, dynamic>>,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Mostrando puntuaciones'), findsNothing);
+    expect(find.text('Ronda 2: dados compartidos por todos'), findsOneWidget);
+    expect(
+      sonidos.where((sonido) => sonido == SonidoJuego.zonaCompleta).length,
+      1,
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -1109,6 +1201,112 @@ void main() {
           matching: find.text('Jugador Dos completó amarilla.'),
         ),
         findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'avisa y reproduce cada zona rival sin perder eventos simultáneos',
+    (tester) async {
+      final sonidos = <SonidoJuego>[];
+      final eventos = <Map<String, dynamic>>[
+        {
+          'id': 'rival-1',
+          'message': 'Jugador Dos completó amarilla: primera recompensa.',
+          'playerId': 'player-2',
+          'region': 'amarilla',
+          'round': 1,
+          'points': 8,
+        },
+        {
+          'id': 'propio-1',
+          'message': 'Jugador Uno completó amarilla en la misma ronda.',
+          'playerId': 'player-1',
+          'region': 'amarilla',
+          'round': 1,
+          'points': 8,
+        },
+        {
+          'id': 'rival-2',
+          'message': 'Jugador Dos completó azul1: segunda recompensa.',
+          'playerId': 'player-2',
+          'region': 'azul1',
+          'round': 1,
+          'points': 5,
+        },
+      ];
+      var latestRoom = roomJson(
+        players: 2,
+        phase: 'playing',
+        ready: true,
+        dice: [1, 2],
+        events: eventos,
+      );
+      final client = clientWith(
+        (request) async => http.Response(jsonEncode(latestRoom), 200),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PantallaJuego(
+            multiplayerClient: client,
+            multiplayerUser: user,
+            roomCode: 'ABC234',
+            reproducirSonido: (sonido) async => sonidos.add(sonido),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        sonidos.where((sonido) => sonido == SonidoJuego.zonaRival).length,
+        2,
+      );
+      expect(
+        sonidos.where((sonido) => sonido == SonidoJuego.zonaCompleta).length,
+        1,
+      );
+      Finder aviso(String message) => find.descendant(
+        of: find.byKey(const Key('rival-zone-notice')),
+        matching: find.text(message),
+      );
+      expect(aviso(eventos[0]['message']! as String), findsOneWidget);
+
+      eventos.add({
+        'id': 'rival-3',
+        'message': 'Jugador Dos completó verde1: tercera recompensa.',
+        'playerId': 'player-2',
+        'region': 'verde1',
+        'round': 2,
+        'points': 2,
+      });
+      latestRoom = roomJson(
+        players: 2,
+        phase: 'playing',
+        ready: true,
+        revision: 2,
+        round: 2,
+        dice: [1, 2],
+        events: eventos,
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(
+        sonidos.where((sonido) => sonido == SonidoJuego.zonaRival).length,
+        3,
+      );
+      expect(aviso(eventos[0]['message']! as String), findsOneWidget);
+      await tester.tap(find.byTooltip('Cerrar aviso'));
+      await tester.pumpAndSettle();
+      expect(aviso(eventos[2]['message']! as String), findsOneWidget);
+      await tester.tap(find.byTooltip('Cerrar aviso'));
+      await tester.pumpAndSettle();
+      expect(aviso(eventos[3]['message']! as String), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('rival-zone-notice')), findsNothing);
+      expect(
+        sonidos.where((sonido) => sonido == SonidoJuego.zonaRival).length,
+        3,
       );
       await tester.pumpWidget(const SizedBox.shrink());
     },

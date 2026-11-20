@@ -166,6 +166,7 @@ class RoomSnapshot {
     required this.finishReason,
     required this.events,
     required this.regionCounters,
+    this.roundSettled = false,
   });
 
   final String code;
@@ -182,6 +183,7 @@ class RoomSnapshot {
   final String? finishReason;
   final List<RoomEvent> events;
   final Map<String, int> regionCounters;
+  final bool roundSettled;
 
   factory RoomSnapshot.fromJson(Map<String, dynamic> json) => RoomSnapshot(
     code: _string(json['code']),
@@ -205,6 +207,7 @@ class RoomSnapshot {
         .toList(growable: false),
     regionCounters: _object(json['regionCounters'])
         .map((key, value) => MapEntry(key, _integer(value))),
+    roundSettled: json['roundSettled'] == true,
   );
 
   String? playerName(String? playerId) {
